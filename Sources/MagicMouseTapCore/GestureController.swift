@@ -59,7 +59,10 @@ public final class GestureController {
     public func updateConfig(_ config: GestureConfig) {
         locked {
             let wasDragLock = engine.config.dragLockEnabled
-            let dragOff = !config.threeFingerDragEnabled && engine.config.threeFingerDragEnabled
+            let old = engine.config
+            let dragOff = (!config.threeFingerDragEnabled && old.threeFingerDragEnabled)
+                || (!config.tapDragEnabled && old.tapDragEnabled)
+                || config.style != old.style
             engine.config = config
             if (wasDragLock && !config.dragLockEnabled) || dragOff { abortLocked() }
         }

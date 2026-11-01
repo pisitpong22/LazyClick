@@ -1,7 +1,26 @@
 import Foundation
 
+/// Which gesture vocabulary is active.
+public enum GestureStyle: Int, Sendable {
+    /// Trackpad-like: 1/2/3-finger taps = left/right/middle click, three-finger drag.
+    case trackpad = 0
+    /// Mouse-like: one-finger tap on the left/right half = left/right click; tap, then touch again and
+    /// hold while moving the mouse = drag (no three fingers needed).
+    case mouse = 1
+}
+
 /// All tunables for the gesture engine. Values marked "internal" are not exposed in the UI.
 public struct GestureConfig: Equatable, Sendable {
+    public var style: GestureStyle = .trackpad
+
+    // Mouse style switches
+    public var leftSideTapEnabled = true
+    public var rightSideTapEnabled = true
+    /// Tap, then touch again within the double-click interval and move the mouse -> drag.
+    public var tapDragEnabled = true
+    /// Swap which half of the surface counts as "left" (left-handed users / mirrored sensor).
+    public var swapSides = false
+
     // Feature switches (menu)
     public var oneFingerTapEnabled = true
     public var twoFingerTapEnabled = true
@@ -34,6 +53,8 @@ public struct GestureConfig: Equatable, Sendable {
     public var doubleClickDistance: Double = 6
     /// Contacts closer than this to the left/right edge are ignored (grip / thumb).
     public var edgeInset: Float = 0.03
+    /// Normalized x that separates the left half from the right half in mouse style.
+    public var sideSplit: Float = 0.5
 
     public init() {}
 

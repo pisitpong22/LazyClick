@@ -20,6 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let twoItem = NSMenuItem(title: "Two-finger tap: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let threeItem = NSMenuItem(title: "Three-finger tap: Middle Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let dragItem = NSMenuItem(title: "Three-finger drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
+    private let styleTrackpadItem = NSMenuItem(title: "Style: Trackpad (1/2/3-finger taps, 3-finger drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
+    private let styleMouseItem = NSMenuItem(title: "Style: Mouse (tap left/right side, tap-and-hold drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
+    private let leftSideItem = NSMenuItem(title: "Tap left side: Left Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
+    private let rightSideItem = NSMenuItem(title: "Tap right side: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
+    private let tapDragItem = NSMenuItem(title: "Tap, then touch and move: Drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let missionItem = NSMenuItem(title: "Four fingers + move up: Mission Control", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
@@ -104,8 +109,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
 
-        for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, missionItem, loginItem] { item.target = self }
+        for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, missionItem, loginItem,
+                     styleTrackpadItem, styleMouseItem, leftSideItem, rightSideItem, tapDragItem] { item.target = self }
         oneItem.tag = 1; twoItem.tag = 2; threeItem.tag = 3; dragItem.tag = 4; missionItem.tag = 5
+        leftSideItem.tag = 6; rightSideItem.tag = 7; tapDragItem.tag = 8
+        styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
         enabledItem.image = symbol("power")
         deviceItem.isEnabled = false
         permissionItem.image = symbol("lock.shield")
@@ -114,12 +122,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(deviceItem)
         menu.addItem(permissionItem)
         menu.addItem(.separator())
+        menu.addItem(styleTrackpadItem)
+        menu.addItem(styleMouseItem)
+        menu.addItem(.separator())
         oneItem.image = symbol("hand.point.up.left")
         twoItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
         threeItem.image = symbol("hand.raised")
         dragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
         missionItem.image = symbol("rectangle.3.group")
-        [oneItem, twoItem, threeItem, dragItem, missionItem].forEach(menu.addItem)
+        [oneItem, twoItem, threeItem, dragItem, leftSideItem, rightSideItem, tapDragItem, missionItem].forEach(menu.addItem)
+        leftSideItem.image = symbol("hand.point.up.left")
+        rightSideItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
+        tapDragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
         menu.addItem(.separator())
         menu.addItem(loginItem)
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -179,10 +193,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.isHidden = Permission.isTrusted
         for (item, key) in [(oneItem, Preferences.Key.oneFinger), (twoItem, Preferences.Key.twoFinger),
                             (threeItem, Preferences.Key.threeFinger), (dragItem, Preferences.Key.threeFingerDrag),
-                            (missionItem, Preferences.Key.fourFingerSwipeUp)] {
+                            (missionItem, Preferences.Key.fourFingerSwipeUp), (leftSideItem, Preferences.Key.leftSideTap),
+                            (rightSideItem, Preferences.Key.rightSideTap), (tapDragItem, Preferences.Key.tapDrag)] {
             item.state = Preferences.bool(key) ? .on : .off
             item.isEnabled = on
         }
+        let mouse = Preferences.style == .mouse
+        styleTrackpadItem.state = mouse ? .off : .on
+        styleMouseItem.state = mouse ? .on : .off
+        [oneItem, twoItem, threeItem, dragItem].forEach { $0.isHidden = mouse }
+        [leftSideItem, rightSideItem, tapDragItem].forEach { $0.isHidden = !mouse }
         loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
     }
 
@@ -202,9 +222,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case 2: key = Preferences.Key.twoFinger
         case 3: key = Preferences.Key.threeFinger
         case 5: key = Preferences.Key.fourFingerSwipeUp
+        case 6: key = Preferences.Key.leftSideTap
+        case 7: key = Preferences.Key.rightSideTap
+        case 8: key = Preferences.Key.tapDrag
         default: key = Preferences.Key.threeFingerDrag
         }
         Preferences.set(!Preferences.bool(key), for: key)
+        controller.updateConfig(Preferences.gestureConfig())
+        settings?.reload()
+    }
+
+    @objc private func selectStyle(_ sender: NSMenuItem) {
+        Preferences.style = GestureStyle(rawValue: sender.tag) ?? .trackpad
         controller.updateConfig(Preferences.gestureConfig())
         settings?.reload()
     }

@@ -8,6 +8,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
 
     private var checks: [String: NSButton] = [:]
+    private var trackpadViews: [NSView] = []
+    private var mouseViews: [NSView] = []
+    private let stylePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let styleHint = NSTextField(wrappingLabelWithString: "")
     private let sensitivity = NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let dragDistance = NSSlider(value: 6, minValue: 2, maxValue: 30, target: nil, action: nil)
     private let dragLockTimeout = NSSlider(value: 1, minValue: 0.3, maxValue: 3, target: nil, action: nil)
@@ -34,7 +38,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         dragDistance.doubleValue = Preferences.double(Preferences.Key.dragDistance)
         dragLockTimeout.doubleValue = Preferences.double(Preferences.Key.dragLockTimeout)
         dragLockTimeout.isEnabled = Preferences.bool(Preferences.Key.dragLock)
+        stylePopup.selectItem(at: Preferences.style.rawValue)
+        applyStyleVisibility()
         updateLabels()
+    }
+
+    private func applyStyleVisibility() {
+        let mouse = Preferences.style == .mouse
+        trackpadViews.forEach { $0.isHidden = mouse }
+        mouseViews.forEach { $0.isHidden = !mouse }
+        styleHint.stringValue = mouse
+            ? "Tap the left half = left click, right half = right click. Tap, then touch again and move the mouse while holding = drag (no three fingers)."
+            : "1 / 2 / 3-finger tap = left / right / middle click. Three fingers + move = drag."
+        if let w = window, let content = w.contentView { w.setContentSize(content.fittingSize) }
     }
 
     private func updateLabels() {
@@ -59,14 +75,34 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         stack.spacing = 8
         stack.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 18, right: 20)
 
+        stack.addArrangedSubview(header("Gesture style"))
+        stylePopup.addItems(withTitles: ["Trackpad style", "Mouse style"])
+        stylePopup.target = self
+        stylePopup.action = #selector(styleChanged)
+        stack.addArrangedSubview(stylePopup)
+        styleHint.preferredMaxLayoutWidth = 380
+        styleHint.textColor = .secondaryLabelColor
+        stack.addArrangedSubview(styleHint)
+        stack.addArrangedSubview(spacer())
+
         stack.addArrangedSubview(header("Gestures"))
         for (title, key) in [("One-finger tap → Left Click", Preferences.Key.oneFinger),
                              ("Two-finger tap → Right Click", Preferences.Key.twoFinger),
                              ("Three-finger tap → Middle Click", Preferences.Key.threeFinger),
-                             ("Three-finger drag", Preferences.Key.threeFingerDrag),
-                             ("Four fingers + move up → Mission Control", Preferences.Key.fourFingerSwipeUp)] {
-            stack.addArrangedSubview(check(title, key))
+                             ("Three-finger drag", Preferences.Key.threeFingerDrag)] {
+            let b = check(title, key)
+            trackpadViews.append(b)
+            stack.addArrangedSubview(b)
         }
+        for (title, key) in [("Tap left side → Left Click (quick double tap = double-click)", Preferences.Key.leftSideTap),
+                             ("Tap right side → Right Click", Preferences.Key.rightSideTap),
+                             ("Tap, then touch and move the mouse → Drag", Preferences.Key.tapDrag),
+                             ("Swap left and right sides", Preferences.Key.swapSides)] {
+            let b = check(title, key)
+            mouseViews.append(b)
+            stack.addArrangedSubview(b)
+        }
+        stack.addArrangedSubview(check("Four fingers + move up → Mission Control", Preferences.Key.fourFingerSwipeUp))
 
         stack.addArrangedSubview(spacer())
         stack.addArrangedSubview(header("Advanced"))
@@ -120,6 +156,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Actions
 
+    @objc private func styleChanged() {
+        Preferences.style = GestureStyle(rawValue: stylePopup.indexOfSelectedItem) ?? .trackpad
+        applyStyleVisibility()
+        onChange()
+    }
+
     @objc private func checkChanged(_ sender: NSButton) {
         guard let key = sender.identifier?.rawValue else { return }
         Preferences.set(sender.state == .on, for: key)
@@ -152,6 +194,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         window?.delegate = nil
         window = nil
+        trackpadViews.removeAll(); mouseViews.removeAll(); checks.removeAll()
         onClose()
     }
 }

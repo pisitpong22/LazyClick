@@ -37,6 +37,9 @@ public final class GestureEngine {
     private var cursorStart = CGPoint.zero
     private var threeSince: Double?
     private var lastCursor = CGPoint.zero
+    private var slid = false           // a finger slid across the surface (scroll/swipe)
+    private var dragArmed = false      // mouse style: this touch follows a left tap closely -> may become a drag
+    private var sessionStartX: Float = 0.5
 
     private var lastTap: (time: Double, location: CGPoint, count: Int)?
 
@@ -125,8 +128,17 @@ public final class GestureEngine {
         sessionStart = t
         peak = active.count
         tapValid = true
+        slid = false
         cursorStart = cursor
+        sessionStartX = active.first?.x ?? 0.5
         threeSince = nil
+        dragArmed = false
+        if config.style == .mouse, config.tapDragEnabled, active.count == 1,
+           let prev = lastTap,
+           t - prev.time <= config.doubleClickInterval,
+           hypot(cursor.x - prev.location.x, cursor.y - prev.location.y) <= config.doubleClickDistance {
+            dragArmed = true
+        }
         tracks.removeAll(keepingCapacity: true)
         for c in active { tracks.append(Track(id: c.id, startX: c.x, startY: c.y)) }
     }
@@ -147,6 +159,7 @@ public final class GestureEngine {
                 let tr = tracks[i]
                 if max(abs(c.x - tr.startX), abs(c.y - tr.startY)) > tolerance {
                     tapValid = false // fingers sliding: scroll / swipe
+                    slid = true
                 }
             } else {
                 tracks.append(Track(id: c.id, startX: c.x, startY: c.y))
@@ -180,6 +193,11 @@ public final class GestureEngine {
             return
         }
 
+        if config.style == .mouse {
+            updateMouseStyle(t, cursor, physicalDown, moved: moved)
+            return
+        }
+
         // With four-finger gestures on, a 4th finger may still be landing: hold the drag until the land window closes.
         let landSettled = !config.fourFingerSwipeUpEnabled || (t - sessionStart) > config.fingerLandWindow
 
@@ -200,6 +218,19 @@ public final class GestureEngine {
             // Nothing else can come of this session; wait for every finger to lift.
             phase = .ignoring
         }
+    }
+
+    /// Mouse style: only a single, stationary-on-the-surface finger matters. A touch that follows a left tap
+    /// closely becomes a drag as soon as the pointer travels; otherwise it can only end as a tap.
+    private func updateMouseStyle(_ t: Double, _ cursor: CGPoint, _ physicalDown: Bool, moved: Double) {
+        if physicalDown || slid || peak >= 2 { dragArmed = false }
+        if dragArmed, active.count == 1,
+           t - sessionStart >= config.dragStabilizeTime,
+           moved >= config.dragActivationDistance {
+            beginDrag(cursor)
+            return
+        }
+        if !tapValid && !dragArmed { phase = .ignoring }
     }
 
     private func beginDrag(_ cursor: CGPoint) {
@@ -253,16 +284,20 @@ public final class GestureEngine {
     }
 
     private func emitTap(peak: Int, time t: Double, cursor: CGPoint) {
+        if config.style == .mouse {
+            guard peak == 1 else { return }
+            let isLeftHalf = (sessionStartX < config.sideSplit) != config.swapSides
+            if isLeftHalf {
+                if config.leftSideTapEnabled { emitLeftTap(time: t, cursor: cursor) }
+            } else if config.rightSideTapEnabled {
+                lastTap = nil
+                emit(.click(.right, clickCount: 1, at: cursor))
+            }
+            return
+        }
         switch peak {
         case 1 where config.oneFingerTapEnabled:
-            var count = 1
-            if let prev = lastTap,
-               t - prev.time <= config.doubleClickInterval,
-               hypot(cursor.x - prev.location.x, cursor.y - prev.location.y) <= config.doubleClickDistance {
-                count = prev.count >= 3 ? 1 : prev.count + 1
-            }
-            lastTap = (t, cursor, count)
-            emit(.click(.left, clickCount: count, at: cursor))
+            emitLeftTap(time: t, cursor: cursor)
         case 2 where config.twoFingerTapEnabled:
             lastTap = nil
             emit(.click(.right, clickCount: 1, at: cursor))
@@ -272,6 +307,17 @@ public final class GestureEngine {
         default:
             break
         }
+    }
+
+    private func emitLeftTap(time t: Double, cursor: CGPoint) {
+        var count = 1
+        if let prev = lastTap,
+           t - prev.time <= config.doubleClickInterval,
+           hypot(cursor.x - prev.location.x, cursor.y - prev.location.y) <= config.doubleClickDistance {
+            count = prev.count >= 3 ? 1 : prev.count + 1
+        }
+        lastTap = (t, cursor, count)
+        emit(.click(.left, clickCount: count, at: cursor))
     }
 
     @inline(__always)
