@@ -7,6 +7,8 @@ public struct GestureConfig: Equatable, Sendable {
     public var twoFingerTapEnabled = true
     public var threeFingerTapEnabled = true
     public var threeFingerDragEnabled = true
+    /// Four fingers down + pointer moved up -> Mission Control.
+    public var fourFingerSwipeUpEnabled = true
 
     // Advanced settings (Settings panel)
     /// 0 = strict (short, tiny movement), 1 = relaxed (longer, more movement tolerated).
@@ -18,6 +20,8 @@ public struct GestureConfig: Equatable, Sendable {
     public var dragLockTimeout: Double = 1.0
 
     // Internal
+    /// Upward pointer travel (points) with four fingers down that triggers Mission Control.
+    public var missionControlTravel: Double = 24
     /// Fingers that land within this window of the first finger count as one simultaneous gesture.
     public var fingerLandWindow: Double = 0.10
     /// Three fingers must be present this long before a drag may begin (count stabilization).

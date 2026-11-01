@@ -55,7 +55,7 @@ final class ControllerTests: XCTestCase {
     private func frame(_ dt: Double, _ c: [Contact]) { t += dt; controller.handleFrame(timestamp: t, contacts: c) }
 
     private func dragStart() {
-        frame(0, three); frame(0.05, three)
+        frame(0, three); frame(0.12, three)
         cursor.x += 25
         frame(0.011, three)
     }

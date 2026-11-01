@@ -24,6 +24,9 @@ public final class GestureController {
 
     /// Called (from the touch thread) once if the private ABI looks wrong and handling was disabled.
     public var onABIFault: (() -> Void)?
+    /// Called (from the touch thread, under the controller lock) when a four-finger swipe-up is recognized.
+    /// The host must return quickly (dispatch elsewhere).
+    public var onMissionControl: (() -> Void)?
 
     public init(poster: EventPosting,
                 timer: DragLockTimer,
@@ -123,6 +126,8 @@ public final class GestureController {
             timer.schedule(after: seconds) { [weak self] in self?.dragLockTimerFired() }
         case .cancelDragLockTimer:
             timer.cancel()
+        case .missionControl:
+            onMissionControl?()
         default:
             mouse.apply(action)
         }

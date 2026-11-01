@@ -11,6 +11,7 @@ enum Preferences {
         static let twoFinger = "twoFingerTap"
         static let threeFinger = "threeFingerTap"
         static let threeFingerDrag = "threeFingerDrag"
+        static let fourFingerSwipeUp = "fourFingerSwipeUp"
         static let sensitivity = "tapSensitivity"
         static let dragDistance = "dragActivationDistance"
         static let dragLock = "dragLock"
@@ -25,6 +26,7 @@ enum Preferences {
             Key.twoFinger: true,
             Key.threeFinger: true,
             Key.threeFingerDrag: true,
+            Key.fourFingerSwipeUp: true,
             Key.sensitivity: 0.5,
             Key.dragDistance: 6.0,
             Key.dragLock: false,
@@ -47,6 +49,7 @@ enum Preferences {
         c.twoFingerTapEnabled = bool(Key.twoFinger)
         c.threeFingerTapEnabled = bool(Key.threeFinger)
         c.threeFingerDragEnabled = bool(Key.threeFingerDrag)
+        c.fourFingerSwipeUpEnabled = bool(Key.fourFingerSwipeUp)
         c.tapSensitivity = min(1, max(0, double(Key.sensitivity)))
         c.dragActivationDistance = min(40, max(2, double(Key.dragDistance)))
         c.dragLockEnabled = bool(Key.dragLock)

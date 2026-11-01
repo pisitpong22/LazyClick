@@ -24,4 +24,5 @@ public enum GestureAction: Equatable, Sendable {
     case dragEnd(at: CGPoint)
     case startDragLockTimer(seconds: Double)
     case cancelDragLockTimer
+    case missionControl
 }

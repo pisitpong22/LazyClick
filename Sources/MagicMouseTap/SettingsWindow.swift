@@ -63,7 +63,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         for (title, key) in [("One-finger tap → Left Click", Preferences.Key.oneFinger),
                              ("Two-finger tap → Right Click", Preferences.Key.twoFinger),
                              ("Three-finger tap → Middle Click", Preferences.Key.threeFinger),
-                             ("Three-finger drag", Preferences.Key.threeFingerDrag)] {
+                             ("Three-finger drag", Preferences.Key.threeFingerDrag),
+                             ("Four fingers + move up → Mission Control", Preferences.Key.fourFingerSwipeUp)] {
             stack.addArrangedSubview(check(title, key))
         }
 

@@ -202,8 +202,8 @@ final class ScrollRejectionTests: XCTestCase {
 final class DragTests: XCTestCase {
     private func startDrag(_ r: Rig, fingers: [Contact] = three) {
         r.frame(after: 0, fingers)
-        r.frame(after: 0.02, fingers)
-        r.frame(after: 0.02, fingers)
+        r.frame(after: 0.06, fingers)   // let the 100 ms finger-land window close (4th-finger guard)
+        r.frame(after: 0.06, fingers)
         r.cursor.x += 20
         r.frame(after: 0.012, fingers)
     }
@@ -396,7 +396,7 @@ final class DoubleClickTests: XCTestCase {
 final class InterruptionTests: XCTestCase {
     func testCancelDuringDragReleasesOnceAndFingersMustLiftBeforeNextGesture() {
         let r = Rig()
-        r.frame(after: 0, three); r.frame(after: 0.05, three)
+        r.frame(after: 0, three); r.frame(after: 0.12, three)
         r.cursor.x += 30; r.frame(after: 0.011, three)
         XCTAssertEqual(r.begins, 1)
         r.engine.cancelAll(cursor: r.cursor)
@@ -422,7 +422,7 @@ final class InterruptionTests: XCTestCase {
 
     func testCancelDuringDragLockWaitCancelsTimerAndReleases() {
         let r = Rig { $0.dragLockEnabled = true }
-        r.frame(after: 0, three); r.frame(after: 0.05, three)
+        r.frame(after: 0, three); r.frame(after: 0.12, three)
         r.cursor.x += 30; r.frame(after: 0.011, three)
         r.lift()
         r.engine.cancelAll(cursor: r.cursor)

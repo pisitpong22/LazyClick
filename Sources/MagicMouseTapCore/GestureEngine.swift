@@ -166,8 +166,26 @@ public final class GestureEngine {
             threeSince = nil
         }
 
+        if config.fourFingerSwipeUpEnabled, peak >= 4 {
+            // Four-finger session: never a tap, never a drag. Pointer moving up = Mission Control.
+            tapValid = false
+            if physicalDown { phase = .ignoring; return }
+            let up = Double(cursorStart.y - cursor.y)
+            let side = abs(Double(cursor.x - cursorStart.x))
+            if up >= config.missionControlTravel && up >= side * 1.2 {
+                phase = .ignoring // fire once; wait for every finger to lift
+                lastTap = nil
+                emit(.missionControl)
+            }
+            return
+        }
+
+        // With four-finger gestures on, a 4th finger may still be landing: hold the drag until the land window closes.
+        let landSettled = !config.fourFingerSwipeUpEnabled || (t - sessionStart) > config.fingerLandWindow
+
         if config.threeFingerDragEnabled,
            peak >= 3,
+           landSettled,
            !physicalDown,
            let since = threeSince,
            t - since >= config.dragStabilizeTime {

@@ -8,6 +8,7 @@ A tiny native macOS menu bar app that adds touch gestures to Apple's **Magic Mou
 | Two-finger quick tap | Right click |
 | Three-finger quick tap (no movement) | Middle click |
 | Three fingers down + move the mouse | Left button held → drag; releases when all fingers lift |
+| Four fingers down + move the mouse up | Opens Mission Control (like the 3/4-finger swipe up on a trackpad). Fires once per touch; needs ~24 pt of upward pointer travel, mostly vertical |
 
 Physical clicks, pointer movement, scrolling, swipes and Smart Zoom are never intercepted or suppressed — the app only *adds* events when a gesture is recognized.
 
@@ -15,7 +16,7 @@ Physical clicks, pointer movement, scrolling, swipes and Smart Zoom are never in
 - Event driven: no timers or polling while idle (one single-shot timer exists only while the optional drag lock window is open).
 - Apple Silicon (arm64) release build, ~430 KB bundle.
 
-> **Status:** the code builds, 62 automated tests pass, and the private touch API was verified to load and enumerate a real Magic Mouse on the development Mac. **Actual finger gestures on real hardware have not been exercised yet** — see [Verification status](#verification-status).
+> **Status:** the code builds, 72 automated tests pass, and the private touch API was verified to load and enumerate a real Magic Mouse on the development Mac. **Actual finger gestures on real hardware have not been exercised yet** — see [Verification status](#verification-status).
 
 ## Requirements
 
@@ -103,7 +104,7 @@ MultitouchSupport (private) ──raw frames──▶ RawFrameParser ──▶ G
 Done on the development Mac (Apple Silicon, macOS 27.0.1):
 
 - `./build.sh` → Release arm64 `.app`, codesign verifies.
-- `swift test` → 62 tests, 0 failures: 1/2/3-finger taps, staggered landing/lift, late fingers, scroll rejection, strict/relaxed sensitivity, edge contacts, three-finger drag (start, finger count drop, staggered lift, never a click), drag lock, double/triple/rapid taps, interrupted gestures, physical-click coexistence, raw-record parsing, device disconnect/reconnect, sleep, disable mid-drag, shutdown, ABI-fault shutdown.
+- `swift test` → 72 tests, 0 failures: four-finger swipe-up → Mission Control (fires once, ignores sideways/down/jitter, no drag or click), 1/2/3-finger taps, staggered landing/lift, late fingers, scroll rejection, strict/relaxed sensitivity, edge contacts, three-finger drag (start, finger count drop, staggered lift, never a click), drag lock, double/triple/rapid taps, interrupted gestures, physical-click coexistence, raw-record parsing, device disconnect/reconnect, sleep, disable mid-drag, shutdown, ABI-fault shutdown.
 - `MagicMouseTap --probe` loaded the private framework on the real machine, listed the Magic Mouse (family 112, 5152×9056 sensor — matches `ioreg`), started it and stopped it without errors.
 - Idle resource use (no touches), measured with `ps`/`top` for ~30 s: `0.0 %` CPU, resident memory ~7–8 MB with the Magic Mouse started (probe mode) and ~20 MB for the full menu bar app after start-up settles (~55 MB right after launch, without Accessibility granted so the touch adapter was not running). No load testing was done.
 
