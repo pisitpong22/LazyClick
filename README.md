@@ -12,6 +12,8 @@ A tiny native macOS menu bar app that adds touch gestures to Apple's **Magic Mou
 
 ### Gesture styles
 
+Settings shows a looping animation of each gesture (a top-down Magic Mouse, your fingers and a tiny desktop). Hover a row to see it; Reduce Motion shows a still frame.
+
 Pick one in the menu or **Settings → Gesture style** (default: Trackpad).
 
 | | Trackpad style | Mouse style |

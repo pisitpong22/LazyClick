@@ -4,8 +4,11 @@ import LazyClickCore
 /// Settings panel. Built when opened, released when closed.
 /// On macOS 26+ the cards are Liquid Glass (`NSGlassEffectView`); older systems get a blurred rounded card.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
-    private static let contentWidth: CGFloat = 468
+    private static let leftWidth: CGFloat = 440
+    private static let rightWidth: CGFloat = 424
+    private static let gap: CGFloat = 18
     private static let margin: CGFloat = 22
+    private static var contentWidth: CGFloat { margin * 2 + leftWidth + gap + rightWidth }
 
     private var window: NSWindow?
     private var rootStack: NSStackView?
@@ -14,6 +17,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private var switches: [String: NSSwitch] = [:]
     private var trackpadOnly: [NSView] = []
+    private let demo = GestureDemoView(frame: NSRect(origin: .zero, size: GestureDemoView.size))
+    private let captionTitle = NSTextField(labelWithString: "")
+    private let captionDetail = NSTextField(wrappingLabelWithString: "")
+    private var demoForKey: [String: DemoKind] = [:]
     private var mouseOnly: [NSView] = []
 
     private let styleControl = NSSegmentedControl(labels: ["Trackpad", "Mouse"], trackingMode: .selectOne, target: nil, action: nil)
@@ -65,7 +72,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         styleHint.stringValue = mouse
             ? "Tap the left or right half of the mouse to click. Tap, then touch again and move the mouse to drag."
             : "Tap with one, two or three fingers to click. Put three fingers down and move the mouse to drag."
+        let allowed = mouse ? DemoKind.mouse : DemoKind.trackpad
+        if let k = demo.kind, allowed.contains(k) { select(k) } else { select(allowed[0]) }
         resizeToFit(animated: animated)
+    }
+
+    /// Used by `--show-settings --demo <kind>` to preview one animation.
+    func previewDemo(_ kind: DemoKind) { select(kind) }
+
+    private func select(_ kind: DemoKind) {
+        if demo.kind != kind { demo.show(kind) }
+        captionTitle.stringValue = kind.caption.title
+        captionDetail.stringValue = kind.caption.detail
     }
 
     private func resizeToFit(animated: Bool) {
@@ -98,21 +116,32 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         w.contentView = backdrop
 
         let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 14
+        stack.orientation = .horizontal
+        stack.alignment = .top
+        stack.spacing = Self.gap
         stack.translatesAutoresizingMaskIntoConstraints = false
         backdrop.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: backdrop.topAnchor, constant: 40),
             stack.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor, constant: Self.margin),
-            stack.trailingAnchor.constraint(equalTo: backdrop.trailingAnchor, constant: -Self.margin),
         ])
         rootStack = stack
 
-        let inner = Self.contentWidth - 2 * Self.margin
+        let left = NSStackView()
+        left.orientation = .vertical
+        left.alignment = .leading
+        left.spacing = 14
+        let right = NSStackView()
+        right.orientation = .vertical
+        right.alignment = .leading
+        right.spacing = 14
+        stack.addArrangedSubview(left)
+        stack.addArrangedSubview(right)
 
-        stack.addArrangedSubview(makeHeader())
+        let lw = Self.leftWidth, rw = Self.rightWidth
+
+        // ---- Left column: header, style, gestures
+        left.addArrangedSubview(makeHeader())
 
         styleControl.target = self
         styleControl.action = #selector(styleChanged)
@@ -122,46 +151,59 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         if let img = symbol("computermouse") { styleControl.setImage(img, forSegment: 1) }
         styleHint.font = .systemFont(ofSize: 11)
         styleHint.textColor = .secondaryLabelColor
-        styleHint.preferredMaxLayoutWidth = inner - 4
-        stack.addArrangedSubview(styleControl)
-        stack.addArrangedSubview(styleHint)
-        styleControl.widthAnchor.constraint(equalToConstant: inner).isActive = true
-        styleHint.widthAnchor.constraint(equalToConstant: inner - 4).isActive = true
+        styleHint.preferredMaxLayoutWidth = lw - 4
+        left.addArrangedSubview(styleControl)
+        left.addArrangedSubview(styleHint)
+        styleControl.widthAnchor.constraint(equalToConstant: lw).isActive = true
+        styleHint.widthAnchor.constraint(equalToConstant: lw - 4).isActive = true
 
-        // Gestures
         let trackpadRows = [
-            toggleRow("One-finger tap", "Left click", Preferences.Key.oneFinger),
-            toggleRow("Two-finger tap", "Right click", Preferences.Key.twoFinger),
-            toggleRow("Three-finger tap", "Middle click", Preferences.Key.threeFinger),
-            toggleRow("Three-finger drag", "Three fingers down, then move the mouse", Preferences.Key.threeFingerDrag),
+            toggleRow("One-finger tap", "Left click", Preferences.Key.oneFinger, demo: .oneTap),
+            toggleRow("Two-finger tap", "Right click", Preferences.Key.twoFinger, demo: .twoTap),
+            toggleRow("Three-finger tap", "Middle click", Preferences.Key.threeFinger, demo: .threeTap),
+            toggleRow("Three-finger drag", "Three fingers down, then move the mouse", Preferences.Key.threeFingerDrag, demo: .threeDrag),
         ]
         let mouseRows = [
-            toggleRow("Tap the left side", "Left click · two quick taps = double-click", Preferences.Key.leftSideTap),
-            toggleRow("Tap the right side", "Right click", Preferences.Key.rightSideTap),
-            toggleRow("Tap, touch again and move", "Drag — lift your finger to drop", Preferences.Key.tapDrag),
-            toggleRow("Swap left and right", "For left-handed use or a mirrored sensor", Preferences.Key.swapSides),
+            toggleRow("Tap the left side", "Left click · two quick taps = double-click", Preferences.Key.leftSideTap, demo: .sideLeft),
+            toggleRow("Tap the right side", "Right click", Preferences.Key.rightSideTap, demo: .sideRight),
+            toggleRow("Tap, touch again and move", "Drag — lift your finger to drop", Preferences.Key.tapDrag, demo: .tapDrag),
+            toggleRow("Swap left and right", "For left-handed use or a mirrored sensor", Preferences.Key.swapSides, demo: .swapSides),
         ]
         trackpadOnly = trackpadRows
         mouseOnly = mouseRows
-        let missionRow = toggleRow("Four fingers, move up", "Opens Mission Control", Preferences.Key.fourFingerSwipeUp)
-        stack.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [missionRow], width: inner))
+        let missionRow = toggleRow("Four fingers, move up", "Opens Mission Control", Preferences.Key.fourFingerSwipeUp, demo: .mission)
+        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [missionRow], width: lw))
 
-        // Fine tuning
+        // ---- Right column: live preview, fine-tuning
+        captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        captionTitle.alignment = .center
+        captionDetail.font = .systemFont(ofSize: 11)
+        captionDetail.textColor = .secondaryLabelColor
+        captionDetail.alignment = .center
+        captionDetail.preferredMaxLayoutWidth = rw - 40
+        let captions = NSStackView(views: [captionTitle, captionDetail])
+        captions.orientation = .vertical
+        captions.alignment = .centerX
+        captions.spacing = 2
+        captions.widthAnchor.constraint(equalToConstant: rw - 32).isActive = true
+        captionDetail.widthAnchor.constraint(equalToConstant: rw - 40).isActive = true
+        right.addArrangedSubview(section("PREVIEW", rows: [demo, captions], width: rw))
+
         let tuning: [NSView] = [
             sliderRow("Tap sensitivity", sensitivity, sensitivityLabel, #selector(sensitivityChanged)),
             sliderRow("Drag distance", dragDistance, dragDistanceLabel, #selector(dragDistanceChanged)),
             toggleRow("Drag lock", "Keep dragging briefly after lifting your fingers", Preferences.Key.dragLock),
             sliderRow("Drag lock time", dragLockTimeout, dragLockLabel, #selector(dragLockTimeoutChanged)),
         ]
-        stack.addArrangedSubview(section("FINE-TUNING", rows: tuning, width: inner))
+        right.addArrangedSubview(section("FINE-TUNING", rows: tuning, width: rw))
 
         let reset = NSButton(title: "Reset Fine-Tuning", target: self, action: #selector(resetAdvanced))
         if #available(macOS 26.0, *) { reset.bezelStyle = .glass } else { reset.bezelStyle = .rounded }
         reset.controlSize = .large
         let footer = NSStackView(views: [NSView(), reset])
         footer.orientation = .horizontal
-        footer.widthAnchor.constraint(equalToConstant: inner).isActive = true
-        stack.addArrangedSubview(footer)
+        footer.widthAnchor.constraint(equalToConstant: rw).isActive = true
+        right.addArrangedSubview(footer)
 
         w.center()
         return w
@@ -254,7 +296,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return s
     }
 
-    private func toggleRow(_ title: String, _ detail: String, _ key: String) -> NSView {
+    private func toggleRow(_ title: String, _ detail: String, _ key: String, demo kind: DemoKind? = nil) -> NSView {
         let t = NSTextField(labelWithString: title)
         t.font = .systemFont(ofSize: 13, weight: .medium)
         let d = NSTextField(labelWithString: detail)
@@ -277,7 +319,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let flex = NSView()
         flex.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
         flex.setContentCompressionResistancePriority(NSLayoutConstraint.Priority(1), for: .horizontal)
-        let row = NSStackView(views: [labels, flex, sw])
+        let row = HoverRow(views: [labels, flex, sw])
+        if let kind {
+            demoForKey[key] = kind
+            row.onHover = { [weak self] in
+                if ProcessInfo.processInfo.environment["LAZYCLICK_DEMO_FREEZE"] == nil { self?.select(kind) }
+            }
+        }
         row.orientation = .horizontal
         row.alignment = .centerY
         row.distribution = .fill
@@ -315,6 +363,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     @objc private func switchChanged(_ sender: NSSwitch) {
         guard let key = sender.identifier?.rawValue else { return }
         Preferences.set(sender.state == .on, for: key)
+        if let k = demoForKey[key] { select(k) }
         if key == Preferences.Key.dragLock { dragLockTimeout.isEnabled = sender.state == .on }
         onChange()
     }
@@ -345,7 +394,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.delegate = nil
         window = nil
         rootStack = nil
-        switches.removeAll(); trackpadOnly.removeAll(); mouseOnly.removeAll()
+        switches.removeAll(); trackpadOnly.removeAll(); mouseOnly.removeAll(); demoForKey.removeAll()
         onClose()
     }
+}
+
+/// A settings row that reports when the pointer is over it, so the preview can follow.
+final class HoverRow: NSStackView {
+    var onHover: (() -> Void)?
+    private var area: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let area { removeTrackingArea(area) }
+        let a = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(a)
+        area = a
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?() }
 }

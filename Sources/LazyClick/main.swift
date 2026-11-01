@@ -15,6 +15,10 @@ if CommandLine.arguments.contains("--show-settings") {
     preview.setActivationPolicy(.regular)
     let controller = SettingsWindowController(onChange: {}, onClose: { exit(0) })
     controller.present()
+    if let i = CommandLine.arguments.firstIndex(of: "--demo"), i + 1 < CommandLine.arguments.count,
+       let kind = DemoKind.allCases.first(where: { String(describing: $0) == CommandLine.arguments[i + 1] }) {
+        controller.previewDemo(kind)
+    }
     preview.run()
 }
 
