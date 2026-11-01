@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds "Magic Mouse Tap.app" (arm64, Release) into ./build and runs the unit tests first.
+# Builds "LazyClick.app" (arm64, Release) into ./build and runs the unit tests first.
 #
 #   ./build.sh              build + test + bundle + ad-hoc sign
 #   SKIP_TESTS=1 ./build.sh skip the test run
@@ -8,8 +8,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Magic Mouse Tap"
-BIN_NAME="MagicMouseTap"
+APP_NAME="LazyClick"
+BIN_NAME="LazyClick"
 VERSION="${VERSION:-1.0.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 IDENTITY="${CODESIGN_IDENTITY:--}"
@@ -42,7 +42,7 @@ else
 fi
 
 echo "==> Signing (identity: ${IDENTITY/#-/ad-hoc})"
-codesign --force --sign "$IDENTITY" --identifier app.magicmousetap.MagicMouseTap --timestamp=none "$OUT"
+codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --timestamp=none "$OUT"
 codesign --verify --verbose=1 "$OUT"
 
 echo "==> Architecture: $(lipo -archs "$OUT/Contents/MacOS/$BIN_NAME")"

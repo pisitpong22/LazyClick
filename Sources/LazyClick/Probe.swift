@@ -1,5 +1,5 @@
 import Foundation
-import MagicMouseTapCore
+import LazyClickCore
 
 /// Hardware verification aid. Prints what MultitouchSupport reports; never posts events.
 func runProbe() {

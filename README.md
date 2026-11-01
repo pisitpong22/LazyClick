@@ -1,4 +1,4 @@
-# Magic Mouse Tap
+# LazyClick
 
 A tiny native macOS menu bar app that adds touch gestures to Apple's **Magic Mouse** without changing its normal behavior.
 
@@ -44,7 +44,7 @@ Physical clicks, pointer movement, scrolling, swipes and Smart Zoom are never in
 ./build.sh
 ```
 
-Runs the unit tests, builds Release for arm64, assembles `build/Magic Mouse Tap.app`, generates the icon, and signs it ad-hoc. Options:
+Runs the unit tests, builds Release for arm64, assembles `build/LazyClick.app`, generates the icon, and signs it ad-hoc. Options:
 
 ```sh
 SKIP_TESTS=1 ./build.sh                                   # skip tests
@@ -56,21 +56,21 @@ Ad-hoc signed builds get a new code identity every rebuild, so macOS may ask you
 ## Install
 
 ```sh
-cp -R "build/Magic Mouse Tap.app" /Applications/
-open "/Applications/Magic Mouse Tap.app"
+cp -R "build/LazyClick.app" /Applications/
+open "/Applications/LazyClick.app"
 ```
 
 Launch at Login works best from `/Applications`.
 
 If you copy the app from another Mac or download it, macOS quarantines it. For an ad-hoc signed build run once:
-`xattr -dr com.apple.quarantine "/Applications/Magic Mouse Tap.app"`.
+`xattr -dr com.apple.quarantine "/Applications/LazyClick.app"`.
 
 ## Permissions
 
 The app needs **Accessibility** (to post click/drag events). On first launch it shows the standard macOS prompt once. Nothing is changed automatically:
 
 1. System Settings → Privacy & Security → Accessibility
-2. Switch on **Magic Mouse Tap**
+2. Switch on **LazyClick**
 
 The menu shows "Grant Accessibility Access…" until it's granted; gestures start automatically afterwards (the app listens for the trust-change notification — no polling). Reading touches does not require a permission. If permission is missing, the app does nothing and the menu bar icon is dimmed.
 
@@ -97,8 +97,8 @@ MultitouchSupport (private) ──raw frames──▶ RawFrameParser ──▶ G
                                        CGEvent (HID tap) ◀── SyntheticMouse ◀── GestureController
 ```
 
-- `Sources/MagicMouseTapCore` — gesture engine, raw frame parser, controller, CGEvent poster. No private API, fully unit tested.
-- `Sources/MagicMouseTap` — menu bar app. `MultitouchAdapter.swift` is the **only** file that touches the private framework.
+- `Sources/LazyClickCore` — gesture engine, raw frame parser, controller, CGEvent poster. No private API, fully unit tested.
+- `Sources/LazyClick` — menu bar app. `MultitouchAdapter.swift` is the **only** file that touches the private framework.
 - A *session* begins when the first finger lands and ends when the last finger lifts. Taps are decided only at session end, so staggered landings/lifts can't create intermediate clicks. Fingers sliding, late fingers, long holds, cursor motion, or a physical click disqualify the tap. A drag permanently disqualifies the session from tapping, so a drag can never end in a middle click.
 - Drag starts when ≥ 3 fingers are stably present and the pointer has moved past the activation distance; the button is pressed at the session's start position and synthetic `leftMouseDragged` events follow the pointer on each touch frame. Everything that can interrupt it (disable, device loss, sleep, quit, SIGTERM/SIGINT/SIGHUP, feature toggled off) releases the button.
 - Pointer movement and physical button state are read from `CGEvent`/`CGEventSource` on touch frames only — there is **no event tap**, so no input is ever swallowed or delayed.
@@ -120,12 +120,12 @@ Done on the development Mac (Apple Silicon, macOS 27.0.1):
 
 - `./build.sh` → Release arm64 `.app`, codesign verifies.
 - `swift test` → 89 tests, 0 failures: Mouse style (side taps, tap-and-hold drag, double-click vs drag, swapped sides, scroll rejection), four-finger swipe-up → Mission Control (fires once, ignores sideways/down/jitter, no drag or click), 1/2/3-finger taps, staggered landing/lift, late fingers, scroll rejection, strict/relaxed sensitivity, edge contacts, three-finger drag (start, finger count drop, staggered lift, never a click), drag lock, double/triple/rapid taps, interrupted gestures, physical-click coexistence, raw-record parsing, device disconnect/reconnect, sleep, disable mid-drag, shutdown, ABI-fault shutdown.
-- `MagicMouseTap --probe` loaded the private framework on the real machine, listed the Magic Mouse (family 112, 5152×9056 sensor — matches `ioreg`), started it and stopped it without errors.
+- `LazyClick --probe` loaded the private framework on the real machine, listed the Magic Mouse (family 112, 5152×9056 sensor — matches `ioreg`), started it and stopped it without errors.
 - Idle resource use (no touches), measured with `ps`/`top` for ~30 s: `0.0 %` CPU, resident memory ~7–8 MB with the Magic Mouse started (probe mode) and ~20 MB for the full menu bar app after start-up settles (~55 MB right after launch, without Accessibility granted so the touch adapter was not running). No load testing was done.
 
 **Not verified (needs hands-on testing with the mouse):**
 
-- That real touch frames decode as expected (run `MagicMouseTap --probe 15` and touch the mouse; it prints contacts and flags `IMPLAUSIBLE` frames).
+- That real touch frames decode as expected (run `LazyClick --probe 15` and touch the mouse; it prints contacts and flags `IMPLAUSIBLE` frames).
 - Actual tap/drag recognition quality and the default thresholds.
 - Drag-and-drop of files/windows/text selection in real apps (synthetic drag events vs. hardware motion events).
 - Interplay with Smart Zoom, Bluetooth reconnect/sleep-wake with the actual device, Launch at Login.
@@ -138,15 +138,15 @@ Done on the development Mac (Apple Silicon, macOS 27.0.1):
 - **Accidental clicks:** Settings → set Tap sensitivity to Strict; keep fingers from sliding.
 - **Taps ignored:** set Tap sensitivity to Relaxed.
 - **Drag starts too eagerly / too late:** adjust Drag activation distance.
-- **Diagnose touch data:** `"/Applications/Magic Mouse Tap.app/Contents/MacOS/MagicMouseTap" --probe 15`
+- **Diagnose touch data:** `"/Applications/LazyClick.app/Contents/MacOS/LazyClick" --probe 15`
 - **Launch at Login fails:** move the app to `/Applications`; approve it in System Settings → General → Login Items.
 
 ## Uninstall
 
 1. Quit from the menu; turn off Launch at Login first (or remove it in System Settings → General → Login Items).
-2. Delete `/Applications/Magic Mouse Tap.app`.
+2. Delete `/Applications/LazyClick.app`.
 3. Remove it from Privacy & Security → Accessibility (− button).
-4. Optional: `defaults delete app.magicmousetap.MagicMouseTap`.
+4. Optional: `defaults delete io.github.pisitpong22.LazyClick`.
 
 ## Prior art and licensing
 

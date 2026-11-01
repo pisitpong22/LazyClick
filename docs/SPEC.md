@@ -1,6 +1,6 @@
 You are a senior macOS engineer specializing in Swift, AppKit, low-level input events, and Apple Magic Mouse multitouch.
 
-Build a COMPLETE, production-quality, ultra-lightweight native macOS menu bar application called "Magic Mouse Tap". Implement the project in the current workspace, not just a design or code snippets.
+Build a COMPLETE, production-quality, ultra-lightweight native macOS menu bar application called "LazyClick". Implement the project in the current workspace, not just a design or code snippets.
 
 GOAL
 Add touch-based clicks and three-finger drag to Apple's Magic Mouse while preserving its existing behavior. The application must be extremely resource-efficient, responsive, simple and reliable.
@@ -81,7 +81,7 @@ PERFORMANCE
 DELIVERABLES
 1. Complete compilable source code and project files.
 2. A build.sh script that produces an installable .app bundle.
-3. A clearly named Release build artifact: Magic Mouse Tap.app.
+3. A clearly named Release build artifact: LazyClick.app.
 4. README with installation, permissions, usage, troubleshooting and uninstall steps.
 5. Automated unit tests for gesture state transitions using simulated touch sequences.
 6. Test cases for 1/2/3-finger taps, scrolling rejection, three-finger drag, double taps, interrupted gestures, physical click coexistence, device reconnection and shutdown.

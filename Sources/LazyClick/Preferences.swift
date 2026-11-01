@@ -1,5 +1,5 @@
 import Foundation
-import MagicMouseTapCore
+import LazyClickCore
 
 /// UserDefaults-backed settings. Reads happen on demand; nothing is polled.
 enum Preferences {

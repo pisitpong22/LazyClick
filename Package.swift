@@ -2,24 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "MagicMouseTap",
+    name: "LazyClick",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "MagicMouseTap", targets: ["MagicMouseTap"])
+        .executable(name: "LazyClick", targets: ["LazyClick"])
     ],
     targets: [
         // Pure gesture logic + CGEvent posting. No private API, no AppKit.
-        .target(name: "MagicMouseTapCore", path: "Sources/MagicMouseTapCore"),
+        .target(name: "LazyClickCore", path: "Sources/LazyClickCore"),
         // Menu bar app + the only file that touches MultitouchSupport (MultitouchAdapter.swift).
         .executableTarget(
-            name: "MagicMouseTap",
-            dependencies: ["MagicMouseTapCore"],
-            path: "Sources/MagicMouseTap"
+            name: "LazyClick",
+            dependencies: ["LazyClickCore"],
+            path: "Sources/LazyClick"
         ),
         .testTarget(
-            name: "MagicMouseTapCoreTests",
-            dependencies: ["MagicMouseTapCore"],
-            path: "Tests/MagicMouseTapCoreTests"
+            name: "LazyClickCoreTests",
+            dependencies: ["LazyClickCore"],
+            path: "Tests/LazyClickCoreTests"
         ),
     ],
     swiftLanguageVersions: [.v5]

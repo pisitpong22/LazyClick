@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import MagicMouseTapCore
+@testable import LazyClickCore
 
 final class MockPoster: EventPosting {
     struct Event: Equatable {

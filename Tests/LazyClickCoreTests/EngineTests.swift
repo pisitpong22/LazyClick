@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import MagicMouseTapCore
+@testable import LazyClickCore
 
 /// Drives the engine with simulated touch frames. Time only advances through `frame`.
 final class Rig {

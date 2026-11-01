@@ -1,6 +1,6 @@
 import Foundation
 import IOKit
-import MagicMouseTapCore
+import LazyClickCore
 
 /// The ONLY file that touches Apple's private MultitouchSupport.framework.
 ///

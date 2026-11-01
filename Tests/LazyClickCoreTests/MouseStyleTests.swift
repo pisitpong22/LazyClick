@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import MagicMouseTapCore
+@testable import LazyClickCore
 
 private let leftFinger = [f(1, 0.30, 0.5)]
 private let rightFinger = [f(1, 0.70, 0.5)]

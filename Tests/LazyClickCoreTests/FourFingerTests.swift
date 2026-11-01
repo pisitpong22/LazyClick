@@ -1,6 +1,6 @@
 import CoreGraphics
 import XCTest
-@testable import MagicMouseTapCore
+@testable import LazyClickCore
 
 let four = [f(1, 0.30, 0.5), f(2, 0.42, 0.5), f(3, 0.54, 0.5), f(4, 0.66, 0.5)]
 

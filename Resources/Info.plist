@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleExecutable</key><string>MagicMouseTap</string>
+    <key>CFBundleExecutable</key><string>LazyClick</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleIdentifier</key><string>app.magicmousetap.MagicMouseTap</string>
+    <key>CFBundleIdentifier</key><string>io.github.pisitpong22.LazyClick</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>Magic Mouse Tap</string>
-    <key>CFBundleDisplayName</key><string>Magic Mouse Tap</string>
+    <key>CFBundleName</key><string>LazyClick</string>
+    <key>CFBundleDisplayName</key><string>LazyClick</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>__VERSION__</string>
     <key>CFBundleVersion</key><string>__BUILD__</string>

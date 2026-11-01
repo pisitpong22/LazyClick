@@ -1,5 +1,5 @@
 import AppKit
-import MagicMouseTapCore
+import LazyClickCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let adapter = MultitouchAdapter()
@@ -139,11 +139,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
-        let aboutItem = NSMenuItem(title: "About Magic Mouse Tap", action: #selector(showAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: "About LazyClick", action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Magic Mouse Tap", action: #selector(quit), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit LazyClick", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -158,7 +158,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshStatusIcon() {
         guard let button = statusItem?.button else { return }
         let name = symbol("magicmouse") != nil ? "magicmouse" : "computermouse"
-        let img = symbol(name, description: "Magic Mouse Tap")
+        let img = symbol(name, description: "LazyClick")
         img?.isTemplate = true
         button.image = img
         button.appearsDisabled = !isActive // dim when not handling gestures
@@ -243,7 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let err = LaunchAtLogin.set(target) {
             let a = NSAlert()
             a.messageText = "Could not change Launch at Login"
-            a.informativeText = err.localizedDescription + "\n\nTip: move Magic Mouse Tap.app to /Applications and try again."
+            a.informativeText = err.localizedDescription + "\n\nTip: move LazyClick.app to /Applications and try again."
             a.runModal()
         } else if LaunchAtLogin.needsApproval {
             if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
@@ -279,10 +279,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let a = NSAlert()
         a.messageText = "Accessibility access is required"
         a.informativeText = """
-        Magic Mouse Tap needs Accessibility access to send click and drag events.
+        LazyClick needs Accessibility access to send click and drag events.
 
         1. Click “Open System Settings”.
-        2. Switch on “Magic Mouse Tap” under Privacy & Security → Accessibility.
+        2. Switch on “LazyClick” under Privacy & Security → Accessibility.
 
         Nothing is changed automatically. Gestures start as soon as access is granted.
         """

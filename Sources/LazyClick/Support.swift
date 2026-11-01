@@ -2,7 +2,7 @@ import ApplicationServices
 import AppKit
 import CoreGraphics
 import ServiceManagement
-import MagicMouseTapCore
+import LazyClickCore
 
 enum Permission {
     static var isTrusted: Bool { AXIsProcessTrusted() }
@@ -38,7 +38,7 @@ enum LaunchAtLogin {
 /// Single-shot timer for drag lock. Idle unless a drag-lock window is open.
 final class OneShotTimer: DragLockTimer {
     private var source: DispatchSourceTimer?
-    private let queue = DispatchQueue(label: "magicmousetap.draglock", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "lazyclick.draglock", qos: .userInteractive)
 
     func schedule(after seconds: Double, _ fire: @escaping () -> Void) {
         cancel()

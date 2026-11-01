@@ -1,5 +1,5 @@
 import AppKit
-import MagicMouseTapCore
+import LazyClickCore
 
 /// Settings panel. Built when opened, released when closed.
 /// On macOS 26+ the cards are Liquid Glass (`NSGlassEffectView`); older systems get a blurred rounded card.
@@ -179,7 +179,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         icon.setContentHuggingPriority(.required, for: .horizontal)
         icon.widthAnchor.constraint(equalToConstant: 40).isActive = true
 
-        let name = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? "Magic Mouse Tap"
+        let name = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? "LazyClick"
         let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? ""
         let title = NSTextField(labelWithString: name)
         title.font = .systemFont(ofSize: 20, weight: .semibold)

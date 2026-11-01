@@ -1,14 +1,14 @@
 import AppKit
-import MagicMouseTapCore
+import LazyClickCore
 
-// `MagicMouseTap --probe [seconds]` prints raw frames from the Magic Mouse for hardware verification.
+// `LazyClick --probe [seconds]` prints raw frames from the Magic Mouse for hardware verification.
 // It never posts events.
 if CommandLine.arguments.contains("--probe") {
     runProbe()
     exit(0)
 }
 
-// `MagicMouseTap --show-settings` opens only the settings window (no touch handling) for UI checks.
+// `LazyClick --show-settings` opens only the settings window (no touch handling) for UI checks.
 if CommandLine.arguments.contains("--show-settings") {
     Preferences.registerDefaults()
     let preview = NSApplication.shared
