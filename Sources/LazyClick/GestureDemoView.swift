@@ -1,4 +1,5 @@
 import AppKit
+import LazyClickCore
 import QuartzCore
 
 /// Which gesture the preview animates.
@@ -6,8 +7,13 @@ enum DemoKind: CaseIterable {
     case oneTap, twoTap, threeTap, threeDrag      // Trackpad style
     case sideLeft, sideRight, tapDrag, swapSides  // Mouse style
 
-    static let trackpad: [DemoKind] = [.oneTap, .twoTap, .threeTap, .threeDrag]
-    static let mouse: [DemoKind] = [.sideLeft, .sideRight, .tapDrag, .swapSides]
+    static func kinds(for style: GestureStyle) -> [DemoKind] {
+        switch style {
+        case .trackpad: return [.oneTap, .twoTap, .threeTap, .threeDrag]
+        case .mouse: return [.sideLeft, .sideRight, .tapDrag, .swapSides]
+        case .both: return [.sideLeft, .sideRight, .tapDrag, .twoTap, .threeTap, .threeDrag, .swapSides]
+        }
+    }
 
     /// Fraction of the loop that best explains the gesture (used for Reduce Motion and screenshots).
     var stillFrame: Double {

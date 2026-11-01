@@ -16,14 +16,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let onClose: () -> Void
 
     private var switches: [String: NSSwitch] = [:]
-    private var trackpadOnly: [NSView] = []
+    private var trackpadOnly: [NSView] = []   // visible in Trackpad style only
+    private var multiFinger: [NSView] = []     // Trackpad and Both
     private let demo = GestureDemoView(frame: NSRect(origin: .zero, size: GestureDemoView.size))
     private let captionTitle = NSTextField(labelWithString: "")
     private let captionDetail = NSTextField(wrappingLabelWithString: "")
     private var demoForKey: [String: DemoKind] = [:]
-    private var mouseOnly: [NSView] = []
+    private var mouseOnly: [NSView] = []       // Mouse and Both
 
-    private let styleControl = NSSegmentedControl(labels: ["Trackpad", "Mouse"], trackingMode: .selectOne, target: nil, action: nil)
+    private let styleControl = NSSegmentedControl(labels: ["Trackpad", "Mouse", "Both"], trackingMode: .selectOne, target: nil, action: nil)
     private let styleHint = NSTextField(wrappingLabelWithString: "")
     private let sensitivity = NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let dragDistance = NSSlider(value: 6, minValue: 2, maxValue: 30, target: nil, action: nil)
@@ -66,13 +67,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     private func applyStyleVisibility(animated: Bool) {
-        let mouse = Preferences.style == .mouse
-        trackpadOnly.forEach { $0.isHidden = mouse }
-        mouseOnly.forEach { $0.isHidden = !mouse }
-        styleHint.stringValue = mouse
-            ? "Tap the left or right half of the mouse to click. Tap, then touch again and move the mouse to drag."
-            : "Tap with one, two or three fingers to click. Put three fingers down and move the mouse to drag."
-        let allowed = mouse ? DemoKind.mouse : DemoKind.trackpad
+        let style = Preferences.style
+        trackpadOnly.forEach { $0.isHidden = style != .trackpad }
+        multiFinger.forEach { $0.isHidden = style == .mouse }
+        mouseOnly.forEach { $0.isHidden = style == .trackpad }
+        switch style {
+        case .trackpad:
+            styleHint.stringValue = "Tap with one, two or three fingers to click. Put three fingers down and move the mouse to drag."
+        case .mouse:
+            styleHint.stringValue = "Tap the left or right half of the mouse to click. Tap, then touch again and move the mouse to drag."
+        case .both:
+            styleHint.stringValue = "Everything at once. One-finger taps follow the mouse rule (left half = left click, right half = right click); two- and three-finger taps and three-finger drag still work."
+        }
+        let allowed = DemoKind.kinds(for: style)
         if let k = demo.kind, allowed.contains(k) { select(k) } else { select(allowed[0]) }
         resizeToFit(animated: animated)
     }
@@ -149,6 +156,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         styleControl.segmentDistribution = .fillEqually
         if let img = symbol("hand.point.up.left") { styleControl.setImage(img, forSegment: 0) }
         if let img = symbol("computermouse") { styleControl.setImage(img, forSegment: 1) }
+        if let img = symbol("square.on.square") { styleControl.setImage(img, forSegment: 2) }
         styleHint.font = .systemFont(ofSize: 11)
         styleHint.textColor = .secondaryLabelColor
         styleHint.preferredMaxLayoutWidth = lw - 4
@@ -169,7 +177,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             toggleRow("Tap, touch again and move", "Drag — lift your finger to drop", Preferences.Key.tapDrag, demo: .tapDrag),
             toggleRow("Swap left and right", "For left-handed use or a mirrored sensor", Preferences.Key.swapSides, demo: .swapSides),
         ]
-        trackpadOnly = trackpadRows
+        trackpadOnly = [trackpadRows[0]]
+        multiFinger = Array(trackpadRows.dropFirst())
         mouseOnly = mouseRows
         left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
 
@@ -393,7 +402,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.delegate = nil
         window = nil
         rootStack = nil
-        switches.removeAll(); trackpadOnly.removeAll(); mouseOnly.removeAll(); demoForKey.removeAll()
+        switches.removeAll(); trackpadOnly.removeAll(); multiFinger.removeAll(); mouseOnly.removeAll(); demoForKey.removeAll()
         onClose()
     }
 }

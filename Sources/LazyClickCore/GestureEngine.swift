@@ -133,7 +133,7 @@ public final class GestureEngine {
         sessionStartX = active.first?.x ?? 0.5
         threeSince = nil
         dragArmed = false
-        if config.style == .mouse, config.tapDragEnabled, active.count == 1,
+        if config.usesSideTaps, config.tapDragEnabled, active.count == 1,
            let prev = lastTap,
            t - prev.time <= config.doubleClickInterval,
            hypot(cursor.x - prev.location.x, cursor.y - prev.location.y) <= config.doubleClickDistance {
@@ -183,6 +183,7 @@ public final class GestureEngine {
             updateMouseStyle(t, cursor, physicalDown, moved: moved)
             return
         }
+        if config.style == .both, startArmedDrag(t, cursor, physicalDown, moved: moved) { return }
 
         if config.threeFingerDragEnabled,
            peak >= 3,
@@ -196,7 +197,7 @@ public final class GestureEngine {
             }
         }
 
-        if !tapValid && !(config.threeFingerDragEnabled && peak >= 3) {
+        if !tapValid && !dragArmed && !(config.threeFingerDragEnabled && peak >= 3) {
             // Nothing else can come of this session; wait for every finger to lift.
             phase = .ignoring
         }
@@ -205,14 +206,20 @@ public final class GestureEngine {
     /// Mouse style: only a single, stationary-on-the-surface finger matters. A touch that follows a left tap
     /// closely becomes a drag as soon as the pointer travels; otherwise it can only end as a tap.
     private func updateMouseStyle(_ t: Double, _ cursor: CGPoint, _ physicalDown: Bool, moved: Double) {
+        if startArmedDrag(t, cursor, physicalDown, moved: moved) { return }
+        if !tapValid && !dragArmed { phase = .ignoring }
+    }
+
+    /// Tap-and-hold drag: returns true if a drag just began.
+    private func startArmedDrag(_ t: Double, _ cursor: CGPoint, _ physicalDown: Bool, moved: Double) -> Bool {
         if physicalDown || slid || peak >= 2 { dragArmed = false }
         if dragArmed, active.count == 1,
            t - sessionStart >= config.dragStabilizeTime,
            moved >= config.dragActivationDistance {
             beginDrag(cursor)
-            return
+            return true
         }
-        if !tapValid && !dragArmed { phase = .ignoring }
+        return false
     }
 
     private func beginDrag(_ cursor: CGPoint) {
@@ -266,8 +273,7 @@ public final class GestureEngine {
     }
 
     private func emitTap(peak: Int, time t: Double, cursor: CGPoint) {
-        if config.style == .mouse {
-            guard peak == 1 else { return }
+        if config.usesSideTaps, peak == 1 {
             let isLeftHalf = (sessionStartX < config.sideSplit) != config.swapSides
             if isLeftHalf {
                 if config.leftSideTapEnabled { emitLeftTap(time: t, cursor: cursor) }
@@ -277,6 +283,7 @@ public final class GestureEngine {
             }
             return
         }
+        if config.style == .mouse { return } // multi-finger taps belong to the trackpad set
         switch peak {
         case 1 where config.oneFingerTapEnabled:
             emitLeftTap(time: t, cursor: cursor)

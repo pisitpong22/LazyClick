@@ -7,11 +7,18 @@ public enum GestureStyle: Int, Sendable {
     /// Mouse-like: one-finger tap on the left/right half = left/right click; tap, then touch again and
     /// hold while moving the mouse = drag (no three fingers needed).
     case mouse = 1
+    /// Both at once. The only overlap is a one-finger tap, which follows the mouse rule (left/right half);
+    /// two- and three-finger taps and three-finger drag come from the trackpad set, tap-and-hold drag from the mouse set.
+    case both = 2
 }
 
 /// All tunables for the gesture engine. Values marked "internal" are not exposed in the UI.
 public struct GestureConfig: Equatable, Sendable {
     public var style: GestureStyle = .trackpad
+    /// One-finger taps are decided by which half of the surface was touched.
+    public var usesSideTaps: Bool { style != .trackpad }
+    /// Two/three-finger taps and three-finger drag are active.
+    public var usesMultiFinger: Bool { style != .mouse }
 
     // Mouse style switches
     public var leftSideTapEnabled = true
