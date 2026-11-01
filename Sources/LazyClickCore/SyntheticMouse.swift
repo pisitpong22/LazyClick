@@ -36,7 +36,7 @@ public final class SyntheticMouse {
             poster.post(.dragged, button: .left, clickCount: 1, at: to, delta: delta)
         case let .dragEnd(at):
             releaseHeld(at: at)
-        case .startDragLockTimer, .cancelDragLockTimer, .missionControl:
+        case .startDragLockTimer, .cancelDragLockTimer:
             break // handled by the controller
         }
     }

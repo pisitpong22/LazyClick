@@ -11,7 +11,6 @@ enum Preferences {
         static let twoFinger = "twoFingerTap"
         static let threeFinger = "threeFingerTap"
         static let threeFingerDrag = "threeFingerDrag"
-        static let fourFingerSwipeUp = "fourFingerSwipeUp"
         static let style = "gestureStyle"
         static let leftSideTap = "leftSideTap"
         static let rightSideTap = "rightSideTap"
@@ -31,7 +30,6 @@ enum Preferences {
             Key.twoFinger: true,
             Key.threeFinger: true,
             Key.threeFingerDrag: true,
-            Key.fourFingerSwipeUp: true,
             Key.style: 0,
             Key.leftSideTap: true,
             Key.rightSideTap: true,
@@ -63,7 +61,6 @@ enum Preferences {
         c.twoFingerTapEnabled = bool(Key.twoFinger)
         c.threeFingerTapEnabled = bool(Key.threeFinger)
         c.threeFingerDragEnabled = bool(Key.threeFingerDrag)
-        c.fourFingerSwipeUpEnabled = bool(Key.fourFingerSwipeUp)
         c.style = style
         c.leftSideTapEnabled = bool(Key.leftSideTap)
         c.rightSideTapEnabled = bool(Key.rightSideTap)

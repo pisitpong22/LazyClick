@@ -8,7 +8,6 @@ A tiny native macOS menu bar app that adds touch gestures to Apple's **Magic Mou
 | Two-finger quick tap | Right click |
 | Three-finger quick tap (no movement) | Middle click |
 | Three fingers down + move the mouse | Left button held → drag; releases when all fingers lift |
-| Four fingers down + move the mouse up | Opens Mission Control (like the 3/4-finger swipe up on a trackpad). Fires once per touch; needs ~24 pt of upward pointer travel, mostly vertical |
 
 ### Gesture styles
 
@@ -23,7 +22,6 @@ Pick one in the menu or **Settings → Gesture style** (default: Trackpad).
 | Middle click | 3-finger tap | — |
 | Double-click | 2 quick 1-finger taps | 2 quick taps on the left half |
 | Drag | 3 fingers down + move the mouse | Tap once, then touch again and **move the mouse while holding** (release by lifting) |
-| Mission Control | 4 fingers + move up | 4 fingers + move up |
 
 In Mouse style the second touch must come within 0.4 s of the left tap, near the same spot, and the finger must stay still on the surface (a sliding finger is a scroll). "Swap left and right sides" mirrors the halves.
 
@@ -121,7 +119,7 @@ MultitouchSupport (private) ──raw frames──▶ RawFrameParser ──▶ G
 Done on the development Mac (Apple Silicon, macOS 27.0.1):
 
 - `./build.sh` → Release arm64 `.app`, codesign verifies.
-- `swift test` → 89 tests, 0 failures: Mouse style (side taps, tap-and-hold drag, double-click vs drag, swapped sides, scroll rejection), four-finger swipe-up → Mission Control (fires once, ignores sideways/down/jitter, no drag or click), 1/2/3-finger taps, staggered landing/lift, late fingers, scroll rejection, strict/relaxed sensitivity, edge contacts, three-finger drag (start, finger count drop, staggered lift, never a click), drag lock, double/triple/rapid taps, interrupted gestures, physical-click coexistence, raw-record parsing, device disconnect/reconnect, sleep, disable mid-drag, shutdown, ABI-fault shutdown.
+- `swift test` → 89 tests, 0 failures: Mouse style (side taps, tap-and-hold drag, double-click vs drag, swapped sides, scroll rejection), 1/2/3-finger taps, staggered landing/lift, late fingers, scroll rejection, strict/relaxed sensitivity, edge contacts, three-finger drag (start, finger count drop, staggered lift, never a click), drag lock, double/triple/rapid taps, interrupted gestures, physical-click coexistence, raw-record parsing, device disconnect/reconnect, sleep, disable mid-drag, shutdown, ABI-fault shutdown.
 - `LazyClick --probe` loaded the private framework on the real machine, listed the Magic Mouse (family 112, 5152×9056 sensor — matches `ioreg`), started it and stopped it without errors.
 - Idle resource use (no touches), measured with `ps`/`top` for ~30 s: `0.0 %` CPU, resident memory ~7–8 MB with the Magic Mouse started (probe mode) and ~20 MB for the full menu bar app after start-up settles (~55 MB right after launch, without Accessibility granted so the touch adapter was not running). No load testing was done.
 

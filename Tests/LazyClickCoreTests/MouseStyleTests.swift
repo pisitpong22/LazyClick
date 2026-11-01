@@ -142,12 +142,6 @@ final class MouseStyleTests: XCTestCase {
         XCTAssertEqual(r.begins, 0)
     }
 
-    func testMissionControlStillWorksInMouseStyle() {
-        let r = rig()
-        r.frame(after: 0, four); r.cursor.y -= 40; r.frame(after: 0.05, four); r.lift()
-        XCTAssertEqual(r.actions.filter { $0 == .missionControl }.count, 1)
-    }
-
     func testTrackpadStyleUnchangedByDefault() {
         XCTAssertEqual(GestureConfig().style, .trackpad)
     }

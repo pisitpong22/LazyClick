@@ -5,10 +5,9 @@ import QuartzCore
 enum DemoKind: CaseIterable {
     case oneTap, twoTap, threeTap, threeDrag      // Trackpad style
     case sideLeft, sideRight, tapDrag, swapSides  // Mouse style
-    case mission                                  // both
 
-    static let trackpad: [DemoKind] = [.oneTap, .twoTap, .threeTap, .threeDrag, .mission]
-    static let mouse: [DemoKind] = [.sideLeft, .sideRight, .tapDrag, .swapSides, .mission]
+    static let trackpad: [DemoKind] = [.oneTap, .twoTap, .threeTap, .threeDrag]
+    static let mouse: [DemoKind] = [.sideLeft, .sideRight, .tapDrag, .swapSides]
 
     /// Fraction of the loop that best explains the gesture (used for Reduce Motion and screenshots).
     var stillFrame: Double {
@@ -17,7 +16,6 @@ enum DemoKind: CaseIterable {
         case .twoTap, .sideRight, .swapSides: return 0.18
         case .threeDrag: return 0.5
         case .tapDrag: return 0.57
-        case .mission: return 0.65
         }
     }
 
@@ -31,7 +29,6 @@ enum DemoKind: CaseIterable {
         case .sideRight: return ("Right click", "Tap the right half of the mouse.")
         case .tapDrag: return ("Drag and drop", "Tap, then touch again and move the mouse. Lift your finger to drop.")
         case .swapSides: return ("Swap left and right", "The halves are mirrored: tapping the left half now right-clicks.")
-        case .mission: return ("Mission Control", "Rest four fingers on the mouse and push it forward.")
         }
     }
 }
@@ -310,7 +307,6 @@ final class GestureDemoView: NSView {
         case .tapDrag:
             buildDrag(fingerSets: [[CGPoint(x: 22, y: 78)], [CGPoint(x: 22, y: 78)]],
                       windows: [[(0.07, 0.14)], [(0.27, 0.88)]], moveFrom: 0.42, moveTo: 0.72, firstTapRipple: 0.08)
-        case .mission: buildMission()
         }
     }
 
@@ -384,36 +380,5 @@ final class GestureDemoView: NSView {
         track(mouse, "position", [(0, pt(mouseHome.x, mouseHome.y)), (a, pt(mouseHome.x, mouseHome.y)),
                                   (b, pt(mouseHome.x + 30, mouseHome.y)), (0.88, pt(mouseHome.x + 30, mouseHome.y)),
                                   (0.96, pt(mouseHome.x, mouseHome.y))])
-    }
-
-    private func buildMission() {
-        let mouse = makeMouse()
-        addFingers(to: mouse, at: [CGPoint(x: 12, y: 74), CGPoint(x: 30, y: 86), CGPoint(x: 50, y: 86), CGPoint(x: 68, y: 74)],
-                   windows: [(0.08, 0.86)])
-        track(mouse, "position", [(0, pt(mouseHome.x, mouseHome.y)), (0.2, pt(mouseHome.x, mouseHome.y)),
-                                  (0.42, pt(mouseHome.x, mouseHome.y + 10)), (0.88, pt(mouseHome.x, mouseHome.y + 10)),
-                                  (0.96, pt(mouseHome.x, mouseHome.y))])
-
-        // three overlapping windows that fan out into thumbnails
-        let big = CGSize(width: 112, height: 72)
-        let from = [CGPoint(x: 236, y: 64), CGPoint(x: 262, y: 74), CGPoint(x: 288, y: 84)]
-        let to = [CGPoint(x: 194, y: 94), CGPoint(x: 260, y: 94), CGPoint(x: 326, y: 94)]
-        for i in 0..<3 {
-            let w = CAShapeLayer()
-            w.bounds = CGRect(origin: .zero, size: big)
-            w.path = CGPath(roundedRect: w.bounds.insetBy(dx: 1, dy: 1), cornerWidth: 7, cornerHeight: 7, transform: nil)
-            w.fillColor = color(.windowBackgroundColor)
-            w.strokeColor = color(i == 2 ? accent : ink, i == 2 ? 0.8 : 0.35)
-            w.lineWidth = 1.2
-            w.position = from[i]
-            let bar = CAShapeLayer()
-            bar.path = CGPath(roundedRect: CGRect(x: 8, y: big.height - 14, width: 40, height: 4), cornerWidth: 2, cornerHeight: 2, transform: nil)
-            bar.fillColor = color(ink, 0.25)
-            w.addSublayer(bar)
-            stage.addSublayer(w)
-            track(w, "position", [(0, pt(from[i].x, from[i].y)), (0.42, pt(from[i].x, from[i].y)),
-                                  (0.56, pt(to[i].x, to[i].y)), (0.86, pt(to[i].x, to[i].y)), (0.96, pt(from[i].x, from[i].y))])
-            track(w, "transform.scale", [(0, num(1)), (0.42, num(1)), (0.56, num(0.5)), (0.86, num(0.5)), (0.96, num(1))])
-        }
     }
 }

@@ -171,8 +171,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         ]
         trackpadOnly = trackpadRows
         mouseOnly = mouseRows
-        let missionRow = toggleRow("Four fingers, move up", "Opens Mission Control", Preferences.Key.fourFingerSwipeUp, demo: .mission)
-        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [missionRow], width: lw))
+        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
 
         // ---- Right column: live preview, fine-tuning
         captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)

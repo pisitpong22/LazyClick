@@ -25,7 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let leftSideItem = NSMenuItem(title: "Tap left side: Left Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let rightSideItem = NSMenuItem(title: "Tap right side: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let tapDragItem = NSMenuItem(title: "Tap, then touch and move: Drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let missionItem = NSMenuItem(title: "Four fingers + move up: Mission Control", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
     override init() {
@@ -51,9 +50,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        controller.onMissionControl = {
-            DispatchQueue.main.async { MissionControl.show() }
-        }
         MultitouchAdapter.frameHandler = { [controller] base, count, ts in
             controller.handleRawFrame(base, count: count, timestamp: ts)
         }
@@ -109,9 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
 
-        for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, missionItem, loginItem,
+        for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, loginItem,
                      styleTrackpadItem, styleMouseItem, leftSideItem, rightSideItem, tapDragItem] { item.target = self }
-        oneItem.tag = 1; twoItem.tag = 2; threeItem.tag = 3; dragItem.tag = 4; missionItem.tag = 5
+        oneItem.tag = 1; twoItem.tag = 2; threeItem.tag = 3; dragItem.tag = 4
         leftSideItem.tag = 6; rightSideItem.tag = 7; tapDragItem.tag = 8
         styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
         enabledItem.image = symbol("power")
@@ -129,8 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         twoItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
         threeItem.image = symbol("hand.raised")
         dragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
-        missionItem.image = symbol("rectangle.3.group")
-        [oneItem, twoItem, threeItem, dragItem, leftSideItem, rightSideItem, tapDragItem, missionItem].forEach(menu.addItem)
+        [oneItem, twoItem, threeItem, dragItem, leftSideItem, rightSideItem, tapDragItem].forEach(menu.addItem)
         leftSideItem.image = symbol("hand.point.up.left")
         rightSideItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
         tapDragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
@@ -193,7 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.isHidden = Permission.isTrusted
         for (item, key) in [(oneItem, Preferences.Key.oneFinger), (twoItem, Preferences.Key.twoFinger),
                             (threeItem, Preferences.Key.threeFinger), (dragItem, Preferences.Key.threeFingerDrag),
-                            (missionItem, Preferences.Key.fourFingerSwipeUp), (leftSideItem, Preferences.Key.leftSideTap),
+                            (leftSideItem, Preferences.Key.leftSideTap),
                             (rightSideItem, Preferences.Key.rightSideTap), (tapDragItem, Preferences.Key.tapDrag)] {
             item.state = Preferences.bool(key) ? .on : .off
             item.isEnabled = on
@@ -221,7 +216,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case 1: key = Preferences.Key.oneFinger
         case 2: key = Preferences.Key.twoFinger
         case 3: key = Preferences.Key.threeFinger
-        case 5: key = Preferences.Key.fourFingerSwipeUp
         case 6: key = Preferences.Key.leftSideTap
         case 7: key = Preferences.Key.rightSideTap
         case 8: key = Preferences.Key.tapDrag
@@ -268,7 +262,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: NSAttributedString(string: "Touch taps, three-finger drag and four-finger Mission Control for Apple Magic Mouse.\nUses the private MultitouchSupport framework; no network access.")
+            .credits: NSAttributedString(string: "Touch taps, three-finger drag and mouse-style gestures for Apple Magic Mouse.\nUses the private MultitouchSupport framework; no network access.")
         ])
     }
 

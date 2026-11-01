@@ -67,14 +67,3 @@ enum CursorState {
             || CGEventSource.buttonState(s, button: .center)
     }
 }
-
-enum MissionControl {
-    /// Same thing the trackpad gesture does: launch Mission Control (toggles it if already open).
-    /// Uses the system app, so it does not depend on the user's keyboard shortcut settings.
-    static func show() {
-        let url = URL(fileURLWithPath: "/System/Applications/Mission Control.app")
-        let cfg = NSWorkspace.OpenConfiguration()
-        cfg.activates = true
-        NSWorkspace.shared.openApplication(at: url, configuration: cfg, completionHandler: nil)
-    }
-}
