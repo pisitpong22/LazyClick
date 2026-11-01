@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let threeItem = NSMenuItem(title: "Three-finger tap: Middle Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let dragItem = NSMenuItem(title: "Three-finger drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let styleTrackpadItem = NSMenuItem(title: "Style: Trackpad (1/2/3-finger taps, 3-finger drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let styleBothItem = NSMenuItem(title: "Style: Both (mouse taps + 2/3-finger gestures)", action: #selector(selectStyle(_:)), keyEquivalent: "")
     private let styleMouseItem = NSMenuItem(title: "Style: Mouse (tap left/right side, tap-and-hold drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
     private let leftSideItem = NSMenuItem(title: "Tap left side: Left Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
     private let rightSideItem = NSMenuItem(title: "Tap right side: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
@@ -107,10 +106,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
 
         for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, loginItem,
-                     styleTrackpadItem, styleMouseItem, styleBothItem, leftSideItem, rightSideItem, tapDragItem] { item.target = self }
+                     styleTrackpadItem, styleMouseItem, leftSideItem, rightSideItem, tapDragItem] { item.target = self }
         oneItem.tag = 1; twoItem.tag = 2; threeItem.tag = 3; dragItem.tag = 4
         leftSideItem.tag = 6; rightSideItem.tag = 7; tapDragItem.tag = 8
-        styleTrackpadItem.tag = 0; styleMouseItem.tag = 1; styleBothItem.tag = 2
+        styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
         enabledItem.image = symbol("power")
         deviceItem.isEnabled = false
         permissionItem.image = symbol("lock.shield")
@@ -121,7 +120,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(styleTrackpadItem)
         menu.addItem(styleMouseItem)
-        menu.addItem(styleBothItem)
         menu.addItem(.separator())
         oneItem.image = symbol("hand.point.up.left")
         twoItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
@@ -196,13 +194,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = Preferences.bool(key) ? .on : .off
             item.isEnabled = on
         }
-        let style = Preferences.style
-        styleTrackpadItem.state = style == .trackpad ? .on : .off
-        styleMouseItem.state = style == .mouse ? .on : .off
-        styleBothItem.state = style == .both ? .on : .off
-        oneItem.isHidden = style != .trackpad
-        [twoItem, threeItem, dragItem].forEach { $0.isHidden = style == .mouse }
-        [leftSideItem, rightSideItem, tapDragItem].forEach { $0.isHidden = style == .trackpad }
+        let mouse = Preferences.style == .mouse
+        styleTrackpadItem.state = mouse ? .off : .on
+        styleMouseItem.state = mouse ? .on : .off
+        [oneItem, twoItem, threeItem, dragItem].forEach { $0.isHidden = mouse }
+        [leftSideItem, rightSideItem, tapDragItem].forEach { $0.isHidden = !mouse }
         loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
     }
 
