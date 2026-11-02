@@ -14,7 +14,12 @@ if CommandLine.arguments.contains("--show-settings") {
     let preview = NSApplication.shared
     preview.setActivationPolicy(.regular)
     let controller = SettingsWindowController(onChange: {}, onClose: { exit(0) })
+    if CommandLine.arguments.contains("--mouse-style") { Preferences.style = .mouse }
     controller.present()
+    if let i = CommandLine.arguments.firstIndex(of: "--tab"), i + 1 < CommandLine.arguments.count,
+       let n = Int(CommandLine.arguments[i + 1]), (0...1).contains(n) {
+        controller.previewTab(n)
+    }
     if let i = CommandLine.arguments.firstIndex(of: "--demo"), i + 1 < CommandLine.arguments.count,
        let kind = DemoKind.allCases.first(where: { String(describing: $0) == CommandLine.arguments[i + 1] }) {
         controller.previewDemo(kind)

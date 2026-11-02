@@ -4,11 +4,9 @@ import LazyClickCore
 /// Settings panel. Built when opened, released when closed.
 /// On macOS 26+ the cards are Liquid Glass (`NSGlassEffectView`); older systems get a blurred rounded card.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
-    private static let leftWidth: CGFloat = 440
-    private static let rightWidth: CGFloat = 424
-    private static let gap: CGFloat = 18
+    private static let bodyWidth: CGFloat = GestureDemoView.size.width
     private static let margin: CGFloat = 22
-    private static var contentWidth: CGFloat { margin * 2 + leftWidth + gap + rightWidth }
+    private static var contentWidth: CGFloat { margin * 2 + bodyWidth }
 
     private var window: NSWindow?
     private var rootStack: NSStackView?
@@ -22,6 +20,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let captionDetail = NSTextField(wrappingLabelWithString: "")
     private var demoForKey: [String: DemoKind] = [:]
     private var mouseOnly: [NSView] = []
+    private var tabPages: [NSView] = []
+    private let tabs = NSSegmentedControl(labels: ["Point & Click", "More Gestures"], trackingMode: .selectOne, target: nil, action: nil)
+    private let batteryLabel = NSTextField(labelWithString: "")
 
     private var styleRadios: [NSButton] = []
     private let sensitivity = NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
@@ -40,6 +41,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func present() {
         if window == nil { window = makeWindow() }
         reload(animated: false)
+        refreshBattery()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
@@ -68,9 +70,57 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let mouse = Preferences.style == .mouse
         trackpadOnly.forEach { $0.isHidden = mouse }
         mouseOnly.forEach { $0.isHidden = !mouse }
-        let allowed = mouse ? DemoKind.mouse : DemoKind.trackpad
-        if let k = demo.kind, allowed.contains(k) { select(k) } else { select(allowed[0]) }
+        applyTab()
         resizeToFit(animated: animated)
+    }
+
+    /// Demos that belong to each tab: clicks on the first, drags on the second.
+    private static let dragKinds: [DemoKind] = [.threeDrag, .tapDrag]
+
+    private func applyTab() {
+        let tab = tabs.selectedSegment
+        for (i, page) in tabPages.enumerated() { page.isHidden = i != tab }
+        let mouse = Preferences.style == .mouse
+        let allowed = (mouse ? DemoKind.mouse : DemoKind.trackpad).filter { Self.dragKinds.contains($0) == (tab == 1) }
+        if let k = demo.kind, allowed.contains(k) { select(k) } else { select(allowed[0]) }
+    }
+
+    @objc private func tabChanged() {
+        applyTab()
+        resizeToFit(animated: true)
+    }
+
+    /// Battery of the paired Magic Mouse, read from the IO registry (no Bluetooth permission needed).
+    private func refreshBattery() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/ioreg")
+            p.arguments = ["-r", "-k", "BatteryPercent", "-l"]
+            let pipe = Pipe()
+            p.standardOutput = pipe
+            p.standardError = FileHandle.nullDevice
+            var text = ""
+            if (try? p.run()) != nil {
+                text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                p.waitUntilExit()
+            }
+            var percent: Int?
+            for block in text.components(separatedBy: "+-o ") where block.contains("\"ProductID\" = 617") || block.contains("\"ProductID\" = 781") {
+                if let r = block.range(of: #""BatteryPercent" = (\d+)"#, options: .regularExpression) {
+                    percent = Int(block[r].split(separator: "=").last?.trimmingCharacters(in: .whitespaces) ?? "")
+                    break
+                }
+            }
+            DispatchQueue.main.async {
+                self?.batteryLabel.stringValue = percent.map { "Battery \($0)%" } ?? ""
+            }
+        }
+    }
+
+    /// Used by `--show-settings --tab <0|1>` to open on a given tab.
+    func previewTab(_ index: Int) {
+        tabs.selectedSegment = index
+        tabChanged()
     }
 
     /// Used by `--show-settings --demo <kind>` to preview one animation.
@@ -112,9 +162,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         w.contentView = backdrop
 
         let stack = NSStackView()
-        stack.orientation = .horizontal
-        stack.alignment = .top
-        stack.spacing = Self.gap
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
         backdrop.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -123,75 +173,94 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         ])
         rootStack = stack
 
-        let left = NSStackView()
-        left.orientation = .vertical
-        left.alignment = .leading
-        left.spacing = 14
-        let right = NSStackView()
-        right.orientation = .vertical
-        right.alignment = .leading
-        right.spacing = 14
-        stack.addArrangedSubview(left)
-        stack.addArrangedSubview(right)
+        let bw = Self.bodyWidth
 
-        let lw = Self.leftWidth, rw = Self.rightWidth
+        // ---- Header, then the two preview cards (mouse + desktop), like System Settings > Mouse
+        stack.addArrangedSubview(makeHeader())
 
-        // ---- Left column: header, style, gestures
-        left.addArrangedSubview(makeHeader())
-
-        left.addArrangedSubview(section("CHOOSE A STYLE", rows: [
-            styleOptionRow(.trackpad, symbolName: "hand.point.up.left", title: "Trackpad style",
-                           detail: "Tap with 1, 2 or 3 fingers = left, right, middle click. Three-finger drag."),
-            styleOptionRow(.mouse, symbolName: "computermouse", title: "Mouse style",
-                           detail: "Tap the left or right half of the mouse to click. Tap, touch again and move to drag."),
-        ], width: lw))
-
-        let trackpadRows = [
-            toggleRow("One-finger tap", "Left click", Preferences.Key.oneFinger, demo: .oneTap),
-            toggleRow("Two-finger tap", "Right click", Preferences.Key.twoFinger, demo: .twoTap),
-            toggleRow("Three-finger tap", "Middle click", Preferences.Key.threeFinger, demo: .threeTap),
-            toggleRow("Three-finger drag", "Three fingers down, then move the mouse", Preferences.Key.threeFingerDrag, demo: .threeDrag),
-        ]
-        let mouseRows = [
-            toggleRow("Tap the left side", "Left click · two quick taps = double-click", Preferences.Key.leftSideTap, demo: .sideLeft),
-            toggleRow("Tap the right side", "Right click", Preferences.Key.rightSideTap, demo: .sideRight),
-            toggleRow("Tap, touch again and move", "Drag — lift your finger to drop", Preferences.Key.tapDrag, demo: .tapDrag),
-            toggleRow("Swap left and right", "For left-handed use or a mirrored sensor", Preferences.Key.swapSides, demo: .swapSides),
-        ]
-        trackpadOnly = trackpadRows
-        mouseOnly = mouseRows
-        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
-
-        // ---- Right column: live preview, fine-tuning
         captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         captionTitle.alignment = .center
         captionDetail.font = .systemFont(ofSize: 11)
         captionDetail.textColor = .secondaryLabelColor
         captionDetail.alignment = .center
-        captionDetail.preferredMaxLayoutWidth = rw - 40
+        captionDetail.preferredMaxLayoutWidth = bw - 40
         let captions = NSStackView(views: [captionTitle, captionDetail])
         captions.orientation = .vertical
         captions.alignment = .centerX
         captions.spacing = 2
-        captions.widthAnchor.constraint(equalToConstant: rw - 32).isActive = true
-        captionDetail.widthAnchor.constraint(equalToConstant: rw - 40).isActive = true
-        right.addArrangedSubview(section("PREVIEW", rows: [demo, captions], width: rw))
+        captions.widthAnchor.constraint(equalToConstant: bw).isActive = true
+        captionDetail.widthAnchor.constraint(equalToConstant: bw - 40).isActive = true
+        let preview = NSStackView(views: [demo, captions])
+        preview.orientation = .vertical
+        preview.alignment = .centerX
+        preview.spacing = 8
+        stack.addArrangedSubview(preview)
 
-        let tuning: [NSView] = [
-            sliderRow("Tap sensitivity", sensitivity, sensitivityLabel, #selector(sensitivityChanged)),
-            sliderRow("Drag distance", dragDistance, dragDistanceLabel, #selector(dragDistanceChanged)),
-            toggleRow("Drag lock", "Keep dragging briefly after lifting your fingers", Preferences.Key.dragLock),
-            sliderRow("Drag lock time", dragLockTimeout, dragLockLabel, #selector(dragLockTimeoutChanged)),
+        // ---- Tabs
+        tabs.segmentStyle = .automatic
+        tabs.segmentDistribution = .fillEqually
+        tabs.selectedSegment = 0
+        tabs.target = self
+        tabs.action = #selector(tabChanged)
+        tabs.controlSize = .large
+        tabs.translatesAutoresizingMaskIntoConstraints = false
+        tabs.widthAnchor.constraint(equalToConstant: bw).isActive = true
+        stack.addArrangedSubview(tabs)
+
+        // ---- Tab 1: Point & Click
+        let trackpadClicks = [
+            toggleRow("One-finger tap", "Left click", Preferences.Key.oneFinger, demo: .oneTap),
+            toggleRow("Two-finger tap", "Right click", Preferences.Key.twoFinger, demo: .twoTap),
+            toggleRow("Three-finger tap", "Middle click", Preferences.Key.threeFinger, demo: .threeTap),
         ]
-        right.addArrangedSubview(section("FINE-TUNING", rows: tuning, width: rw))
+        let mouseClicks = [
+            toggleRow("Tap the left side", "Left click · two quick taps = double-click", Preferences.Key.leftSideTap, demo: .sideLeft),
+            toggleRow("Tap the right side", "Right click", Preferences.Key.rightSideTap, demo: .sideRight),
+            toggleRow("Swap left and right", "For left-handed use or a mirrored sensor", Preferences.Key.swapSides, demo: .swapSides),
+        ]
+        let trackpadDrag = toggleRow("Three-finger drag", "Three fingers down, then move the mouse", Preferences.Key.threeFingerDrag, demo: .threeDrag)
+        let mouseDrag = toggleRow("Tap, touch again and move", "Drag — lift your finger to drop", Preferences.Key.tapDrag, demo: .tapDrag)
+        trackpadOnly = trackpadClicks + [trackpadDrag]
+        mouseOnly = mouseClicks + [mouseDrag]
 
+        let page1 = NSStackView(views: [
+            section("CHOOSE A STYLE", rows: [
+                styleOptionRow(.trackpad, symbolName: "hand.point.up.left", title: "Trackpad style",
+                               detail: "Tap with 1, 2 or 3 fingers = left, right, middle click. Three-finger drag."),
+                styleOptionRow(.mouse, symbolName: "computermouse", title: "Mouse style",
+                               detail: "Tap the left or right half of the mouse to click. Tap, touch again and move to drag."),
+            ], width: bw),
+            section("CLICK", rows: trackpadClicks + mouseClicks
+                    + [sliderRow("Tap sensitivity", sensitivity, sensitivityLabel, #selector(sensitivityChanged))], width: bw),
+        ])
+        page1.orientation = .vertical
+        page1.alignment = .leading
+        page1.spacing = 14
+
+        // ---- Tab 2: More Gestures
         let reset = NSButton(title: "Reset Fine-Tuning", target: self, action: #selector(resetAdvanced))
         if #available(macOS 26.0, *) { reset.bezelStyle = .glass } else { reset.bezelStyle = .rounded }
         reset.controlSize = .large
         let footer = NSStackView(views: [NSView(), reset])
         footer.orientation = .horizontal
-        footer.widthAnchor.constraint(equalToConstant: rw).isActive = true
-        right.addArrangedSubview(footer)
+        footer.widthAnchor.constraint(equalToConstant: bw).isActive = true
+
+        let page2 = NSStackView(views: [
+            section("DRAG", rows: [trackpadDrag, mouseDrag], width: bw),
+            section("FINE-TUNING", rows: [
+                sliderRow("Drag distance", dragDistance, dragDistanceLabel, #selector(dragDistanceChanged)),
+                toggleRow("Drag lock", "Keep dragging briefly after lifting your fingers", Preferences.Key.dragLock),
+                sliderRow("Drag lock time", dragLockTimeout, dragLockLabel, #selector(dragLockTimeoutChanged)),
+            ], width: bw),
+            footer,
+        ])
+        page2.orientation = .vertical
+        page2.alignment = .leading
+        page2.spacing = 14
+
+        tabPages = [page1, page2]
+        stack.addArrangedSubview(page1)
+        stack.addArrangedSubview(page2)
 
         w.center()
         return w
@@ -221,10 +290,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         labels.alignment = .leading
         labels.spacing = 1
 
-        let row = NSStackView(views: [icon, labels])
+        batteryLabel.font = .systemFont(ofSize: 11)
+        batteryLabel.textColor = .secondaryLabelColor
+        batteryLabel.alignment = .right
+        let flex = NSView()
+        flex.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+        let row = NSStackView(views: [icon, labels, flex, batteryLabel])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 10
+        row.widthAnchor.constraint(equalToConstant: Self.bodyWidth).isActive = true
         return row
     }
 
@@ -304,7 +379,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let d = NSTextField(wrappingLabelWithString: detail)
         d.font = .systemFont(ofSize: 11)
         d.textColor = .secondaryLabelColor
-        d.preferredMaxLayoutWidth = Self.leftWidth - 32 - 20 - 28 - 20
+        d.preferredMaxLayoutWidth = Self.bodyWidth - 32 - 20 - 28 - 20
         let labels = NSStackView(views: [t, d])
         labels.orientation = .vertical
         labels.alignment = .leading
@@ -316,8 +391,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         row.alignment = .centerY
         row.distribution = .fill
         row.spacing = 10
-        row.widthAnchor.constraint(equalToConstant: Self.leftWidth - 32).isActive = true
-        labels.widthAnchor.constraint(equalToConstant: Self.leftWidth - 32 - 20 - 28 - 20).isActive = true
+        row.widthAnchor.constraint(equalToConstant: Self.bodyWidth - 32).isActive = true
+        labels.widthAnchor.constraint(equalToConstant: Self.bodyWidth - 32 - 20 - 28 - 20).isActive = true
         row.onClick = { [weak self, weak radio] in
             guard let radio else { return }
             radio.state = .on
@@ -425,7 +500,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.delegate = nil
         window = nil
         rootStack = nil
-        switches.removeAll(); trackpadOnly.removeAll(); mouseOnly.removeAll(); demoForKey.removeAll()
+        switches.removeAll(); trackpadOnly.removeAll(); mouseOnly.removeAll(); demoForKey.removeAll(); tabPages.removeAll()
         onClose()
     }
 }

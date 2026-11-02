@@ -33,10 +33,11 @@ enum DemoKind: CaseIterable {
     }
 }
 
-/// A looping Core Animation illustration: a top-down Magic Mouse on the left, a tiny desktop on the right.
+/// A looping Core Animation illustration shown as two cards, like System Settings > Mouse:
+/// a top-down Magic Mouse with the touch points on the left, a tiny desktop with the result on the right.
 /// Everything is drawn with layers, so it follows light/dark mode and costs nothing when the window is closed.
 final class GestureDemoView: NSView {
-    static let size = CGSize(width: 392, height: 150)
+    static let size = CGSize(width: 584, height: 190)
     private let loop: Double = 3.6
 
     private(set) var kind: DemoKind?
@@ -46,9 +47,11 @@ final class GestureDemoView: NSView {
 
     // Geometry (y axis points up)
     private let mouseSize = CGSize(width: 52, height: 118)
-    private let mouseHome = CGPoint(x: 58, y: 75)
-    private let screenRect = CGRect(x: 142, y: 14, width: 236, height: 122)
-    private let screenCenter = CGPoint(x: 260, y: 75)
+    private let mouseScale: CGFloat = 1.3
+    private let mouseCard = CGRect(x: 0, y: 0, width: 284, height: 190)
+    private let mouseHome = CGPoint(x: 142, y: 95)
+    private let screenRect = CGRect(x: 300, y: 0, width: 284, height: 190)
+    private let screenCenter = CGPoint(x: 442, y: 95)
 
     override var intrinsicContentSize: NSSize { Self.size }
 
@@ -166,6 +169,7 @@ final class GestureDemoView: NSView {
         let m = CALayer()
         m.bounds = CGRect(origin: .zero, size: mouseSize)
         m.position = mouseHome
+        m.transform = CATransform3DMakeScale(mouseScale, mouseScale, 1)
         let bodyPath = Self.mouseBodyPath(in: m.bounds.insetBy(dx: 1, dy: 1))
 
         let body = CAShapeLayer()
@@ -233,17 +237,44 @@ final class GestureDemoView: NSView {
     }
 
     private func makeScreen() {
+        // left card: the mouse sits on it
+        let left = CAShapeLayer()
+        left.path = CGPath(roundedRect: mouseCard, cornerWidth: 16, cornerHeight: 16, transform: nil)
+        left.fillColor = color(ink, 0.06)
+        stage.addSublayer(left)
+
+        // right card: a tiny desktop with a menu bar and one window
         let s = CAShapeLayer()
-        s.path = CGPath(roundedRect: screenRect, cornerWidth: 10, cornerHeight: 10, transform: nil)
-        s.fillColor = color(ink, 0.035)
-        s.strokeColor = color(ink, 0.25)
-        s.lineWidth = 1
+        s.path = CGPath(roundedRect: screenRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
+        s.fillColor = color(accent, 0.16)
         stage.addSublayer(s)
-        for i in 0..<3 {
+        for i in 0..<5 { // menu bar items
             let d = CAShapeLayer()
-            d.path = CGPath(ellipseIn: CGRect(x: screenRect.minX + 9 + CGFloat(i) * 9, y: screenRect.maxY - 12, width: 5, height: 5), transform: nil)
+            let w: CGFloat = i == 0 ? 22 : 12
+            d.path = CGPath(roundedRect: CGRect(x: screenRect.minX + 14 + CGFloat(i) * 18, y: screenRect.maxY - 14, width: w, height: 5),
+                            cornerWidth: 2.5, cornerHeight: 2.5, transform: nil)
+            d.fillColor = color(ink, 0.3)
+            stage.addSublayer(d)
+        }
+        let win = CAShapeLayer()
+        let winRect = CGRect(x: screenRect.minX + 16, y: screenRect.minY + 14, width: screenRect.width - 32, height: screenRect.height - 42)
+        win.path = CGPath(roundedRect: winRect, cornerWidth: 9, cornerHeight: 9, transform: nil)
+        win.fillColor = color(ink, 0.06)
+        win.strokeColor = color(ink, 0.2)
+        win.lineWidth = 1
+        stage.addSublayer(win)
+        for i in 0..<3 { // traffic lights
+            let d = CAShapeLayer()
+            d.path = CGPath(ellipseIn: CGRect(x: winRect.minX + 9 + CGFloat(i) * 9, y: winRect.maxY - 13, width: 5, height: 5), transform: nil)
             d.fillColor = color(ink, 0.25)
             stage.addSublayer(d)
+        }
+        for (k, w) in [90.0, 64.0].enumerated() { // text lines
+            let l = CAShapeLayer()
+            l.path = CGPath(roundedRect: CGRect(x: winRect.minX + 14, y: winRect.maxY - 30 - CGFloat(k) * 10, width: w, height: 4),
+                            cornerWidth: 2, cornerHeight: 2, transform: nil)
+            l.fillColor = color(ink, 0.2)
+            stage.addSublayer(l)
         }
     }
 
@@ -358,7 +389,7 @@ final class GestureDemoView: NSView {
         let mouse = makeMouse()
         for (set, w) in zip(fingerSets, windows) { addFingers(to: mouse, at: set, windows: w) }
 
-        let start = CGPoint(x: 196, y: 75), end = CGPoint(x: 336, y: 75)
+        let start = CGPoint(x: 352, y: 95), end = CGPoint(x: 534, y: 95)
 
         // drop zone
         let zone = CAShapeLayer()
