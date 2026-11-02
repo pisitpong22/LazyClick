@@ -37,7 +37,7 @@ enum DemoKind: CaseIterable {
 /// a top-down Magic Mouse with the touch points on the left, a tiny desktop with the result on the right.
 /// Everything is drawn with layers, so it follows light/dark mode and costs nothing when the window is closed.
 final class GestureDemoView: NSView {
-    static let size = CGSize(width: 584, height: 190)
+    static let size = CGSize(width: 492, height: 190)
     private let loop: Double = 3.6
 
     private(set) var kind: DemoKind?
@@ -46,12 +46,12 @@ final class GestureDemoView: NSView {
     private var frozenAt: Double?
 
     // Geometry (y axis points up)
-    private let mouseSize = CGSize(width: 52, height: 118)
-    private let mouseScale: CGFloat = 1.3
-    private let mouseCard = CGRect(x: 0, y: 0, width: 284, height: 190)
-    private let mouseHome = CGPoint(x: 142, y: 95)
-    private let screenRect = CGRect(x: 300, y: 0, width: 284, height: 190)
-    private let screenCenter = CGPoint(x: 442, y: 95)
+    private let mouseSize = CGSize(width: 56, height: 114)
+    private let mouseScale: CGFloat = 1.4
+    private let mouseCard = CGRect(x: 0, y: 0, width: 200, height: 190)
+    private let mouseHome = CGPoint(x: 100, y: 95)
+    private let screenRect = CGRect(x: 212, y: 0, width: 280, height: 190)
+    private let screenCenter = CGPoint(x: 352, y: 95)
 
     override var intrinsicContentSize: NSSize { Self.size }
 
@@ -153,7 +153,7 @@ final class GestureDemoView: NSView {
         r.position = p
         r.path = CGPath(ellipseIn: r.bounds.insetBy(dx: 2, dy: 2), transform: nil)
         r.fillColor = nil
-        r.strokeColor = color(tint ?? accent)
+        r.strokeColor = tint.map { color($0) } ?? CGColor(gray: 1, alpha: 0.95)
         r.lineWidth = 2
         r.opacity = 0
         stage.addSublayer(r)
@@ -174,10 +174,22 @@ final class GestureDemoView: NSView {
 
         let body = CAShapeLayer()
         body.path = bodyPath
-        body.fillColor = color(ink, 0.06)
-        body.strokeColor = color(ink, 0.4)
-        body.lineWidth = 1.5
+        body.fillColor = color(ink, 0.03)
+        body.strokeColor = color(ink, 0.92)
+        body.lineWidth = 1.9
         m.addSublayer(body)
+
+        // Apple logo (U+F8FF) near the tail, like the illustration in System Settings
+        let logo = CATextLayer()
+        logo.string = "\u{F8FF}"
+        logo.font = NSFont.systemFont(ofSize: 16)
+        logo.fontSize = 15
+        logo.alignmentMode = .center
+        logo.foregroundColor = color(ink, 0.92)
+        logo.contentsScale = 3
+        logo.bounds = CGRect(x: 0, y: 0, width: 24, height: 20)
+        logo.position = CGPoint(x: mouseSize.width / 2, y: 26)
+        m.addSublayer(logo)
 
         if let tint {
             let t = CAShapeLayer()
@@ -236,45 +248,87 @@ final class GestureDemoView: NSView {
         }
     }
 
+    private func fixed(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
+        CGColor(srgbRed: r, green: g, blue: b, alpha: a)
+    }
+
+    @discardableResult
+    private func pill(_ rect: CGRect, _ radius: CGFloat, fill: CGColor, stroke: CGColor? = nil) -> CAShapeLayer {
+        let l = CAShapeLayer()
+        l.path = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        l.fillColor = fill
+        l.strokeColor = stroke
+        l.lineWidth = stroke == nil ? 0 : 1
+        stage.addSublayer(l)
+        return l
+    }
+
     private func makeScreen() {
         // left card: the mouse sits on it
-        let left = CAShapeLayer()
-        left.path = CGPath(roundedRect: mouseCard, cornerWidth: 16, cornerHeight: 16, transform: nil)
-        left.fillColor = color(ink, 0.06)
-        stage.addSublayer(left)
+        pill(mouseCard, 16, fill: color(ink, 0.07))
 
-        // right card: a tiny desktop with a menu bar and one window
-        let s = CAShapeLayer()
-        s.path = CGPath(roundedRect: screenRect, cornerWidth: 16, cornerHeight: 16, transform: nil)
-        s.fillColor = color(accent, 0.16)
-        stage.addSublayer(s)
-        for i in 0..<5 { // menu bar items
-            let d = CAShapeLayer()
-            let w: CGFloat = i == 0 ? 22 : 12
-            d.path = CGPath(roundedRect: CGRect(x: screenRect.minX + 14 + CGFloat(i) * 18, y: screenRect.maxY - 14, width: w, height: 5),
-                            cornerWidth: 2.5, cornerHeight: 2.5, transform: nil)
-            d.fillColor = color(ink, 0.3)
-            stage.addSublayer(d)
+        // right card: a colourful little desktop, like the preview in System Settings
+        let ox = screenRect.minX
+        let wall = CAGradientLayer()
+        wall.frame = screenRect
+        wall.cornerRadius = 16
+        wall.colors = [fixed(0.22, 0.29, 0.68), fixed(0.34, 0.21, 0.60)]
+        wall.startPoint = CGPoint(x: 0, y: 1)
+        wall.endPoint = CGPoint(x: 1, y: 0)
+        stage.addSublayer(wall)
+
+        let bar = fixed(1, 1, 1, 0.7)
+        for (i, w) in [14.0, 22, 22, 22, 14].enumerated() { // menu bar, left
+            pill(CGRect(x: ox + 12 + CGFloat(i) * 28, y: 178, width: w, height: 5), 2.5, fill: bar)
         }
-        let win = CAShapeLayer()
-        let winRect = CGRect(x: screenRect.minX + 16, y: screenRect.minY + 14, width: screenRect.width - 32, height: screenRect.height - 42)
-        win.path = CGPath(roundedRect: winRect, cornerWidth: 9, cornerHeight: 9, transform: nil)
-        win.fillColor = color(ink, 0.06)
-        win.strokeColor = color(ink, 0.2)
-        win.lineWidth = 1
-        stage.addSublayer(win)
-        for i in 0..<3 { // traffic lights
-            let d = CAShapeLayer()
-            d.path = CGPath(ellipseIn: CGRect(x: winRect.minX + 9 + CGFloat(i) * 9, y: winRect.maxY - 13, width: 5, height: 5), transform: nil)
-            d.fillColor = color(ink, 0.25)
-            stage.addSublayer(d)
+        for i in 0..<4 { // menu bar, right
+            pill(CGRect(x: screenRect.maxX - 18 - CGFloat(i) * 12, y: 178, width: 7, height: 5), 2.5, fill: bar)
         }
-        for (k, w) in [90.0, 64.0].enumerated() { // text lines
-            let l = CAShapeLayer()
-            l.path = CGPath(roundedRect: CGRect(x: winRect.minX + 14, y: winRect.maxY - 30 - CGFloat(k) * 10, width: w, height: 4),
-                            cornerWidth: 2, cornerHeight: 2, transform: nil)
-            l.fillColor = color(ink, 0.2)
-            stage.addSublayer(l)
+
+        // browser-like window
+        let win = CGRect(x: ox + 14, y: 34, width: 252, height: 132)
+        pill(win, 9, fill: fixed(0.15, 0.20, 0.46, 0.95), stroke: fixed(1, 1, 1, 0.12))
+        pill(CGRect(x: win.minX + 8, y: win.maxY - 18, width: win.width - 16, height: 11), 5.5, fill: fixed(1, 1, 1, 0.14))
+        pill(CGRect(x: win.minX + 13, y: win.maxY - 15.5, width: 6, height: 6), 3, fill: fixed(0.72, 0.78, 1, 0.9))
+        let ink2 = fixed(0.70, 0.75, 1, 0.8)
+        pill(CGRect(x: win.minX + 12, y: 140, width: 84, height: 4), 2, fill: fixed(0.85, 0.89, 1, 0.95))
+        for (k, w) in [96.0, 80, 88].enumerated() {
+            pill(CGRect(x: win.minX + 12, y: 130 - CGFloat(k) * 8, width: w, height: 3), 1.5, fill: ink2)
+            pill(CGRect(x: win.minX + 126, y: 130 - CGFloat(k) * 8, width: w + 4, height: 3), 1.5, fill: ink2)
+        }
+
+        // three tiles: circle, square, triangle
+        let tileFill = fixed(0.09, 0.12, 0.30, 0.95)
+        for k in 0..<3 {
+            let r = CGRect(x: win.minX + 12 + CGFloat(k) * 80, y: 42, width: 68, height: 36)
+            pill(r, 6, fill: tileFill)
+            let c = CGPoint(x: r.midX, y: r.midY)
+            let shape = CAShapeLayer()
+            switch k {
+            case 0:
+                shape.path = CGPath(ellipseIn: CGRect(x: c.x - 11, y: c.y - 11, width: 22, height: 22), transform: nil)
+                shape.fillColor = fixed(0.55, 0.50, 0.96)
+            case 1:
+                shape.path = CGPath(roundedRect: CGRect(x: c.x - 10, y: c.y - 10, width: 20, height: 20), cornerWidth: 3, cornerHeight: 3, transform: nil)
+                shape.fillColor = fixed(0.52, 0.80, 1.0)
+            default:
+                let t = CGMutablePath()
+                t.move(to: CGPoint(x: c.x, y: c.y + 12))
+                t.addLine(to: CGPoint(x: c.x + 12, y: c.y - 10))
+                t.addLine(to: CGPoint(x: c.x - 12, y: c.y - 10))
+                t.closeSubpath()
+                shape.path = t
+                shape.fillColor = fixed(0.95, 0.42, 0.30)
+            }
+            stage.addSublayer(shape)
+        }
+
+        // dock
+        pill(CGRect(x: ox + 62, y: 6, width: 156, height: 21), 8, fill: fixed(1, 1, 1, 0.2))
+        let dock: [CGColor] = [fixed(0.25, 0.55, 1), fixed(1, 0.72, 0.2), fixed(0.95, 0.35, 0.4), fixed(0.4, 0.8, 0.4),
+                               fixed(1, 0.85, 0.3), fixed(0.95, 0.95, 0.95), fixed(0.45, 0.78, 0.95), fixed(0.55, 0.45, 0.95)]
+        for (i, c) in dock.enumerated() {
+            pill(CGRect(x: ox + 70 + CGFloat(i) * 18.5, y: 10, width: 13, height: 13), 3.5, fill: c)
         }
     }
 
@@ -293,9 +347,9 @@ final class GestureDemoView: NSView {
         p.addLine(to: CGPoint(x: 12, y: 9))
         p.closeSubpath()
         c.path = p
-        c.fillColor = color(ink, 0.9)
-        c.strokeColor = color(.windowBackgroundColor)
-        c.lineWidth = 1
+        c.fillColor = CGColor(gray: 0, alpha: 1)
+        c.strokeColor = CGColor(gray: 1, alpha: 1)
+        c.lineWidth = 1.2
         stage.addSublayer(c)
         return c
     }
@@ -306,16 +360,17 @@ final class GestureDemoView: NSView {
         b.bounds = CGRect(x: 0, y: 0, width: 76, height: 26)
         b.position = screenCenter
         b.path = CGPath(roundedRect: b.bounds, cornerWidth: 7, cornerHeight: 7, transform: nil)
-        b.fillColor = color(ink, 0.06)
-        b.strokeColor = color(ink, 0.3)
+        b.fillColor = CGColor(gray: 1, alpha: 0.14)
+        b.strokeColor = CGColor(gray: 1, alpha: 0.6)
         b.lineWidth = 1
         stage.addSublayer(b)
         let line = CAShapeLayer()
         line.path = CGPath(roundedRect: CGRect(x: 20, y: 11, width: 36, height: 4), cornerWidth: 2, cornerHeight: 2, transform: nil)
-        line.fillColor = color(ink, 0.35)
+        line.fillColor = CGColor(gray: 1, alpha: 0.6)
         b.addSublayer(line)
-        track(b, "fillColor", [(0, color(ink, 0.06)), (t, color(ink, 0.06)), (t + 0.02, color(tint ?? accent, 0.6)),
-                               (t + 0.17, color(ink, 0.06))])
+        let rest = CGColor(gray: 1, alpha: 0.14)
+        let hit = tint.map { color($0, 0.8) } ?? CGColor(gray: 1, alpha: 0.75)
+        track(b, "fillColor", [(0, rest), (t, rest), (t + 0.02, hit), (t + 0.17, rest)])
     }
 
     private func makeContextMenu(origin tip: CGPoint, windows: [(Double, Double)]) {
@@ -324,14 +379,14 @@ final class GestureDemoView: NSView {
         m.anchorPoint = CGPoint(x: 0, y: 1)
         m.position = CGPoint(x: tip.x + 3, y: tip.y - 3)
         m.path = CGPath(roundedRect: m.bounds, cornerWidth: 8, cornerHeight: 8, transform: nil)
-        m.fillColor = color(.windowBackgroundColor)
-        m.strokeColor = color(ink, 0.35)
+        m.fillColor = CGColor(gray: 0.97, alpha: 0.97)
+        m.strokeColor = CGColor(gray: 0, alpha: 0.25)
         m.lineWidth = 1
         for (i, w) in [40.0, 30.0, 36.0].enumerated() {
             let row = CAShapeLayer()
             let y = 33 - CGFloat(i) * 13
             row.path = CGPath(roundedRect: CGRect(x: 10, y: y, width: w, height: 5), cornerWidth: 2.5, cornerHeight: 2.5, transform: nil)
-            row.fillColor = color(i == 0 ? accent : ink, i == 0 ? 0.7 : 0.3)
+            row.fillColor = i == 0 ? color(accent, 0.8) : CGColor(gray: 0, alpha: 0.3)
             m.addSublayer(row)
         }
         stage.addSublayer(m)
@@ -389,29 +444,30 @@ final class GestureDemoView: NSView {
         let mouse = makeMouse()
         for (set, w) in zip(fingerSets, windows) { addFingers(to: mouse, at: set, windows: w) }
 
-        let start = CGPoint(x: 352, y: 95), end = CGPoint(x: 534, y: 95)
+        let start = CGPoint(x: 256, y: 95), end = CGPoint(x: 448, y: 95)
 
         // drop zone
         let zone = CAShapeLayer()
         zone.bounds = CGRect(x: 0, y: 0, width: 46, height: 46)
         zone.position = end
         zone.path = CGPath(roundedRect: zone.bounds.insetBy(dx: 1, dy: 1), cornerWidth: 9, cornerHeight: 9, transform: nil)
-        zone.strokeColor = color(ink, 0.4)
+        let white = CGColor(gray: 1, alpha: 1)
+        zone.strokeColor = CGColor(gray: 1, alpha: 0.75)
         zone.lineDashPattern = [4, 3]
         zone.lineWidth = 1.2
-        zone.fillColor = color(accent, 0)
+        zone.fillColor = CGColor(gray: 1, alpha: 0)
         stage.addSublayer(zone)
-        track(zone, "fillColor", [(0, color(accent, 0)), (b, color(accent, 0)), (b + 0.04, color(accent, 0.3)),
-                                  (0.94, color(accent, 0.3)), (0.97, color(accent, 0))])
+        let clear = CGColor(gray: 1, alpha: 0), lit = white.copy(alpha: 0.3)!
+        track(zone, "fillColor", [(0, clear), (b, clear), (b + 0.04, lit), (0.94, lit), (0.97, clear)])
 
         // file being dragged
         let file = CAShapeLayer()
         file.bounds = CGRect(x: 0, y: 0, width: 24, height: 30)
         file.position = start
         file.path = CGPath(roundedRect: file.bounds.insetBy(dx: 1, dy: 1), cornerWidth: 4, cornerHeight: 4, transform: nil)
-        file.fillColor = color(accent, 0.3)
-        file.strokeColor = color(accent)
-        file.lineWidth = 1.5
+        file.fillColor = CGColor(gray: 1, alpha: 0.95)
+        file.strokeColor = color(.systemOrange)
+        file.lineWidth = 2
         stage.addSublayer(file)
         track(file, "position", [(0, pt(start.x, start.y)), (a, pt(start.x, start.y)), (b, pt(end.x, end.y)),
                                  (0.95, pt(end.x, end.y)), (0.951, pt(start.x, start.y))])
