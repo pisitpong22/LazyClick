@@ -23,8 +23,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var demoForKey: [String: DemoKind] = [:]
     private var mouseOnly: [NSView] = []
 
-    private let styleControl = NSSegmentedControl(labels: ["Trackpad", "Mouse"], trackingMode: .selectOne, target: nil, action: nil)
-    private let styleHint = NSTextField(wrappingLabelWithString: "")
+    private var styleRadios: [NSButton] = []
     private let sensitivity = NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
     private let dragDistance = NSSlider(value: 6, minValue: 2, maxValue: 30, target: nil, action: nil)
     private let dragLockTimeout = NSSlider(value: 1, minValue: 0.3, maxValue: 3, target: nil, action: nil)
@@ -53,7 +52,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         dragDistance.doubleValue = Preferences.double(Preferences.Key.dragDistance)
         dragLockTimeout.doubleValue = Preferences.double(Preferences.Key.dragLockTimeout)
         dragLockTimeout.isEnabled = Preferences.bool(Preferences.Key.dragLock)
-        styleControl.selectedSegment = Preferences.style.rawValue
+        for r in styleRadios { r.state = (r.tag == Preferences.style.rawValue) ? .on : .off }
         applyStyleVisibility(animated: animated)
         updateLabels()
     }
@@ -69,9 +68,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let mouse = Preferences.style == .mouse
         trackpadOnly.forEach { $0.isHidden = mouse }
         mouseOnly.forEach { $0.isHidden = !mouse }
-        styleHint.stringValue = mouse
-            ? "Tap the left or right half of the mouse to click. Tap, then touch again and move the mouse to drag."
-            : "Tap with one, two or three fingers to click. Put three fingers down and move the mouse to drag."
         let allowed = mouse ? DemoKind.mouse : DemoKind.trackpad
         if let k = demo.kind, allowed.contains(k) { select(k) } else { select(allowed[0]) }
         resizeToFit(animated: animated)
@@ -143,19 +139,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         // ---- Left column: header, style, gestures
         left.addArrangedSubview(makeHeader())
 
-        styleControl.target = self
-        styleControl.action = #selector(styleChanged)
-        styleControl.controlSize = .large
-        styleControl.segmentDistribution = .fillEqually
-        if let img = symbol("hand.point.up.left") { styleControl.setImage(img, forSegment: 0) }
-        if let img = symbol("computermouse") { styleControl.setImage(img, forSegment: 1) }
-        styleHint.font = .systemFont(ofSize: 11)
-        styleHint.textColor = .secondaryLabelColor
-        styleHint.preferredMaxLayoutWidth = lw - 4
-        left.addArrangedSubview(styleControl)
-        left.addArrangedSubview(styleHint)
-        styleControl.widthAnchor.constraint(equalToConstant: lw).isActive = true
-        styleHint.widthAnchor.constraint(equalToConstant: lw - 4).isActive = true
+        left.addArrangedSubview(section("CHOOSE A STYLE", rows: [
+            styleOptionRow(.trackpad, symbolName: "hand.point.up.left", title: "Trackpad style",
+                           detail: "Tap with 1, 2 or 3 fingers = left, right, middle click. Three-finger drag."),
+            styleOptionRow(.mouse, symbolName: "computermouse", title: "Mouse style",
+                           detail: "Tap the left or right half of the mouse to click. Tap, touch again and move to drag."),
+        ], width: lw))
 
         let trackpadRows = [
             toggleRow("One-finger tap", "Left click", Preferences.Key.oneFinger, demo: .oneTap),
@@ -295,6 +284,47 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return s
     }
 
+    private func styleOptionRow(_ style: GestureStyle, symbolName: String, title: String, detail: String) -> NSView {
+        let radio = NSButton(radioButtonWithTitle: "", target: self, action: #selector(styleRadioChanged(_:)))
+        radio.tag = style.rawValue
+        radio.setContentHuggingPriority(.required, for: .horizontal)
+        styleRadios.append(radio)
+
+        let icon = NSImageView()
+        icon.image = symbol(symbolName)?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 20, weight: .regular))
+        icon.contentTintColor = .controlAccentColor
+        icon.widthAnchor.constraint(equalToConstant: 28).isActive = true
+
+        let t = NSTextField(labelWithString: title)
+        t.font = .systemFont(ofSize: 13, weight: .semibold)
+        let d = NSTextField(wrappingLabelWithString: detail)
+        d.font = .systemFont(ofSize: 11)
+        d.textColor = .secondaryLabelColor
+        d.preferredMaxLayoutWidth = Self.leftWidth - 32 - 28 - 40
+        let labels = NSStackView(views: [t, d])
+        labels.orientation = .vertical
+        labels.alignment = .leading
+        labels.spacing = 1
+
+        let row = ClickRow(views: [radio, icon, labels])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 10
+        row.onClick = { [weak self, weak radio] in
+            guard let radio else { return }
+            radio.state = .on
+            self?.styleRadioChanged(radio)
+        }
+        return row
+    }
+
+    @objc private func styleRadioChanged(_ sender: NSButton) {
+        Preferences.style = GestureStyle(rawValue: sender.tag) ?? .trackpad
+        for r in styleRadios { r.state = (r.tag == sender.tag) ? .on : .off }
+        applyStyleVisibility(animated: true)
+        onChange()
+    }
+
     private func toggleRow(_ title: String, _ detail: String, _ key: String, demo kind: DemoKind? = nil) -> NSView {
         let t = NSTextField(labelWithString: title)
         t.font = .systemFont(ofSize: 13, weight: .medium)
@@ -353,12 +383,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Actions
 
-    @objc private func styleChanged() {
-        Preferences.style = GestureStyle(rawValue: styleControl.selectedSegment) ?? .trackpad
-        applyStyleVisibility(animated: true)
-        onChange()
-    }
-
     @objc private func switchChanged(_ sender: NSSwitch) {
         guard let key = sender.identifier?.rawValue else { return }
         Preferences.set(sender.state == .on, for: key)
@@ -412,4 +436,11 @@ final class HoverRow: NSStackView {
     }
 
     override func mouseEntered(with event: NSEvent) { onHover?() }
+}
+
+/// Stack row that acts as one big click target (used for the style choices).
+private final class ClickRow: NSStackView {
+    var onClick: (() -> Void)?
+    override func mouseDown(with event: NSEvent) { onClick?() }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
