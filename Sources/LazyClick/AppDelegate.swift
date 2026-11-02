@@ -10,21 +10,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var signalSources: [DispatchSourceSignal] = []
 
     private var deviceCount = 0
+    private var batteryPercent: Int?
+    private var batteryTimer: Timer?
     private var abiFault = false
 
     // Menu items updated in menuWillOpen
     private let enabledItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
     private let deviceItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let permissionItem = NSMenuItem(title: "Grant Accessibility Access…", action: #selector(grantPermission), keyEquivalent: "")
-    private let oneItem = NSMenuItem(title: "One-finger tap: Left Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let twoItem = NSMenuItem(title: "Two-finger tap: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let threeItem = NSMenuItem(title: "Three-finger tap: Middle Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let dragItem = NSMenuItem(title: "Three-finger drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let styleTrackpadItem = NSMenuItem(title: "Style: Trackpad (1/2/3-finger taps, 3-finger drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let styleMouseItem = NSMenuItem(title: "Style: Mouse (tap left/right side, tap-and-hold drag)", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let leftSideItem = NSMenuItem(title: "Tap left side: Left Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let rightSideItem = NSMenuItem(title: "Tap right side: Right Click", action: #selector(toggleGesture(_:)), keyEquivalent: "")
-    private let tapDragItem = NSMenuItem(title: "Tap, then touch and move: Drag", action: #selector(toggleGesture(_:)), keyEquivalent: "")
+    private let styleTrackpadItem = NSMenuItem(title: "Trackpad style", action: #selector(selectStyle(_:)), keyEquivalent: "")
+    private let styleMouseItem = NSMenuItem(title: "Mouse style", action: #selector(selectStyle(_:)), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
 
     override init() {
@@ -58,10 +53,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             if n == 0 { self.controller.deviceDisconnected() }
             self.deviceCount = n
+            self.refreshBattery()
             self.refreshStatusIcon()
         }
 
         buildStatusItem()
+        refreshBattery()
+        // The battery level changes slowly; one cheap check every 5 minutes is plenty.
+        let t = Timer(timeInterval: 300, repeats: true) { [weak self] _ in self?.refreshBattery() }
+        t.tolerance = 60
+        RunLoop.main.add(t, forMode: .common)
+        batteryTimer = t
         installSystemObservers()
         installSignalHandlers()
 
@@ -105,14 +107,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
 
-        for item in [enabledItem, permissionItem, oneItem, twoItem, threeItem, dragItem, loginItem,
-                     styleTrackpadItem, styleMouseItem, leftSideItem, rightSideItem, tapDragItem] { item.target = self }
-        oneItem.tag = 1; twoItem.tag = 2; threeItem.tag = 3; dragItem.tag = 4
-        leftSideItem.tag = 6; rightSideItem.tag = 7; tapDragItem.tag = 8
+        for item in [enabledItem, permissionItem, loginItem, styleTrackpadItem, styleMouseItem] { item.target = self }
         styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
         enabledItem.image = symbol("power")
         deviceItem.isEnabled = false
         permissionItem.image = symbol("lock.shield")
+        styleTrackpadItem.image = symbol("hand.point.up.left")
+        styleMouseItem.image = symbol("computermouse")
 
         menu.addItem(enabledItem)
         menu.addItem(deviceItem)
@@ -121,22 +122,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(styleTrackpadItem)
         menu.addItem(styleMouseItem)
         menu.addItem(.separator())
-        oneItem.image = symbol("hand.point.up.left")
-        twoItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
-        threeItem.image = symbol("hand.raised")
-        dragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
-        [oneItem, twoItem, threeItem, dragItem, leftSideItem, rightSideItem, tapDragItem].forEach(menu.addItem)
-        leftSideItem.image = symbol("hand.point.up.left")
-        rightSideItem.image = symbol("hand.point.up.left.and.text") ?? symbol("hand.raised")
-        tapDragItem.image = symbol("arrow.up.and.down.and.arrow.left.and.right")
-        menu.addItem(.separator())
-        menu.addItem(loginItem)
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
-        let aboutItem = NSMenuItem(title: "About LazyClick", action: #selector(showAbout), keyEquivalent: "")
-        aboutItem.target = self
-        menu.addItem(aboutItem)
+        menu.addItem(loginItem)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit LazyClick", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
@@ -157,7 +146,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         img?.isTemplate = true
         button.image = img
         button.appearsDisabled = !isActive // dim when not handling gestures
-        button.toolTip = statusText
+        button.toolTip = statusText + (batteryPercent.map { " · Battery \($0)%" } ?? "")
+    }
+
+    private func refreshBattery() {
+        MouseBattery.read { [weak self] pct in
+            guard let self, pct != self.batteryPercent else { return }
+            self.batteryPercent = pct
+            self.refreshStatusIcon()
+        }
     }
 
     private var isActive: Bool {
@@ -179,26 +176,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let connected = deviceCount > 0 && on && Permission.isTrusted
         var title = connected ? "Magic Mouse: Connected" : "Magic Mouse: Disconnected"
+        if connected, let pct = batteryPercent { title += " · \(pct)%" }
         var icon = connected ? "checkmark.circle.fill" : "xmark.circle"
         if !Permission.isTrusted && on { title = "Needs Accessibility permission"; icon = "lock.shield" }
         if case .unavailable = adapter.availability { title = "Touch API unavailable"; icon = "exclamationmark.triangle" }
         if abiFault { title = "Touch data unexpected — stopped"; icon = "exclamationmark.triangle" }
         deviceItem.title = title
         deviceItem.image = symbol(icon)
+        refreshBattery()
 
         permissionItem.isHidden = Permission.isTrusted
-        for (item, key) in [(oneItem, Preferences.Key.oneFinger), (twoItem, Preferences.Key.twoFinger),
-                            (threeItem, Preferences.Key.threeFinger), (dragItem, Preferences.Key.threeFingerDrag),
-                            (leftSideItem, Preferences.Key.leftSideTap),
-                            (rightSideItem, Preferences.Key.rightSideTap), (tapDragItem, Preferences.Key.tapDrag)] {
-            item.state = Preferences.bool(key) ? .on : .off
-            item.isEnabled = on
-        }
         let mouse = Preferences.style == .mouse
         styleTrackpadItem.state = mouse ? .off : .on
         styleMouseItem.state = mouse ? .on : .off
-        [oneItem, twoItem, threeItem, dragItem].forEach { $0.isHidden = mouse }
-        [leftSideItem, rightSideItem, tapDragItem].forEach { $0.isHidden = !mouse }
+        styleTrackpadItem.isEnabled = on
+        styleMouseItem.isEnabled = on
         loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
     }
 
@@ -209,22 +201,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if Preferences.bool(Preferences.Key.enabled) && !Permission.isTrusted { showPermissionAlert() }
         abiFault = false
         applyState()
-    }
-
-    @objc private func toggleGesture(_ sender: NSMenuItem) {
-        let key: String
-        switch sender.tag {
-        case 1: key = Preferences.Key.oneFinger
-        case 2: key = Preferences.Key.twoFinger
-        case 3: key = Preferences.Key.threeFinger
-        case 6: key = Preferences.Key.leftSideTap
-        case 7: key = Preferences.Key.rightSideTap
-        case 8: key = Preferences.Key.tapDrag
-        default: key = Preferences.Key.threeFingerDrag
-        }
-        Preferences.set(!Preferences.bool(key), for: key)
-        controller.updateConfig(Preferences.gestureConfig())
-        settings?.reload()
     }
 
     @objc private func selectStyle(_ sender: NSMenuItem) {
@@ -258,13 +234,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             })
         }
         settings?.present()
-    }
-
-    @objc private func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .credits: NSAttributedString(string: "Touch taps, three-finger drag and mouse-style gestures for Apple Magic Mouse.\nUses the private MultitouchSupport framework; no network access.")
-        ])
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

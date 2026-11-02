@@ -81,11 +81,11 @@ Never run `tccutil reset` for this — toggle the switch off/on instead if macOS
 Click the menu bar icon:
 
 - **Enabled** — master switch. Turning it off immediately releases any synthetic button and stops all injection.
-- **Magic Mouse: Connected / Disconnected** — status.
-- **One-/Two-/Three-finger tap**, **Three-finger drag** — per-gesture switches.
+- **Magic Mouse: Connected / Disconnected** — status, with the mouse's battery level when available. The level is refreshed on connect, when the menu opens, and every 5 minutes.
+- **Trackpad style / Mouse style** — choose the gesture style.
+- **Settings…** — individual gestures with a live preview, tap sensitivity (strict → relaxed), drag activation distance, optional drag lock (off by default) and its timeout.
 - **Launch at Login** — off by default.
-- **Settings…** — tap sensitivity (strict → relaxed), drag activation distance, optional drag lock (off by default) and its timeout.
-- **About**, **Quit**.
+- **Quit**.
 
 Tips: tap with the fingertip lightly and lift quickly (under ~0.3 s) without sliding. Landing fingers within ~0.1 s of each other counts as simultaneous. For a drag, put three fingers down, then move the mouse (≥ 6 pt by default); hold the fingers on the surface for as long as you want to drag.
 

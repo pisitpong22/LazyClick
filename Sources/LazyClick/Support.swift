@@ -67,3 +67,33 @@ enum CursorState {
             || CGEventSource.buttonState(s, button: .center)
     }
 }
+
+
+/// Battery level of the paired Magic Mouse, read from the IO registry (no Bluetooth permission needed).
+enum MouseBattery {
+    /// Calls `completion` on the main queue with 0...100, or nil if no Magic Mouse reports a level.
+    static func read(_ completion: @escaping (Int?) -> Void) {
+        DispatchQueue.global(qos: .utility).async {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/ioreg")
+            p.arguments = ["-r", "-k", "BatteryPercent", "-l"]
+            let pipe = Pipe()
+            p.standardOutput = pipe
+            p.standardError = FileHandle.nullDevice
+            var text = ""
+            if (try? p.run()) != nil {
+                text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                p.waitUntilExit()
+            }
+            var percent: Int?
+            // ProductID 617 = Magic Mouse 2, 781 = Magic Mouse (1st gen)
+            for block in text.components(separatedBy: "+-o ") where block.contains("\"ProductID\" = 617") || block.contains("\"ProductID\" = 781") {
+                if let r = block.range(of: #""BatteryPercent" = (\d+)"#, options: .regularExpression) {
+                    percent = Int(block[r].split(separator: "=").last?.trimmingCharacters(in: .whitespaces) ?? "")
+                    break
+                }
+            }
+            DispatchQueue.main.async { completion(percent) }
+        }
+    }
+}

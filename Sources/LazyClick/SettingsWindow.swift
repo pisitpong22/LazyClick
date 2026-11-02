@@ -75,30 +75,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         resizeToFit(animated: animated)
     }
 
-    /// Battery of the paired Magic Mouse, read from the IO registry (no Bluetooth permission needed).
     private func refreshBattery() {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/sbin/ioreg")
-            p.arguments = ["-r", "-k", "BatteryPercent", "-l"]
-            let pipe = Pipe()
-            p.standardOutput = pipe
-            p.standardError = FileHandle.nullDevice
-            var text = ""
-            if (try? p.run()) != nil {
-                text = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                p.waitUntilExit()
-            }
-            var percent: Int?
-            for block in text.components(separatedBy: "+-o ") where block.contains("\"ProductID\" = 617") || block.contains("\"ProductID\" = 781") {
-                if let r = block.range(of: #""BatteryPercent" = (\d+)"#, options: .regularExpression) {
-                    percent = Int(block[r].split(separator: "=").last?.trimmingCharacters(in: .whitespaces) ?? "")
-                    break
-                }
-            }
-            DispatchQueue.main.async {
-                self?.batteryLabel.stringValue = percent.map { "Battery \($0)%" } ?? ""
-            }
+        MouseBattery.read { [weak self] percent in
+            self?.batteryLabel.stringValue = percent.map { "Battery \($0)%" } ?? ""
         }
     }
 
