@@ -288,11 +288,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let radio = NSButton(radioButtonWithTitle: "", target: self, action: #selector(styleRadioChanged(_:)))
         radio.tag = style.rawValue
         radio.setContentHuggingPriority(.required, for: .horizontal)
+        radio.setContentCompressionResistancePriority(.required, for: .horizontal)
+        radio.widthAnchor.constraint(equalToConstant: 20).isActive = true
         styleRadios.append(radio)
 
         let icon = NSImageView()
         icon.image = symbol(symbolName)?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 20, weight: .regular))
         icon.contentTintColor = .controlAccentColor
+        icon.imageAlignment = .alignCenter
+        icon.setContentHuggingPriority(.required, for: .horizontal)
         icon.widthAnchor.constraint(equalToConstant: 28).isActive = true
 
         let t = NSTextField(labelWithString: title)
@@ -300,16 +304,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let d = NSTextField(wrappingLabelWithString: detail)
         d.font = .systemFont(ofSize: 11)
         d.textColor = .secondaryLabelColor
-        d.preferredMaxLayoutWidth = Self.leftWidth - 32 - 28 - 40
+        d.preferredMaxLayoutWidth = Self.leftWidth - 32 - 20 - 28 - 20
         let labels = NSStackView(views: [t, d])
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 1
+        labels.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         let row = ClickRow(views: [radio, icon, labels])
         row.orientation = .horizontal
         row.alignment = .centerY
+        row.distribution = .fill
         row.spacing = 10
+        row.widthAnchor.constraint(equalToConstant: Self.leftWidth - 32).isActive = true
+        labels.widthAnchor.constraint(equalToConstant: Self.leftWidth - 32 - 20 - 28 - 20).isActive = true
         row.onClick = { [weak self, weak radio] in
             guard let radio else { return }
             radio.state = .on

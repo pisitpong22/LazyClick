@@ -45,8 +45,8 @@ final class GestureDemoView: NSView {
     private var frozenAt: Double?
 
     // Geometry (y axis points up)
-    private let mouseSize = CGSize(width: 80, height: 112)
-    private let mouseHome = CGPoint(x: 66, y: 75)
+    private let mouseSize = CGSize(width: 52, height: 118)
+    private let mouseHome = CGPoint(x: 58, y: 75)
     private let screenRect = CGRect(x: 142, y: 14, width: 236, height: 122)
     private let screenCenter = CGPoint(x: 260, y: 75)
 
@@ -166,7 +166,7 @@ final class GestureDemoView: NSView {
         let m = CALayer()
         m.bounds = CGRect(origin: .zero, size: mouseSize)
         m.position = mouseHome
-        let bodyPath = CGPath(roundedRect: m.bounds.insetBy(dx: 1, dy: 1), cornerWidth: 38, cornerHeight: 38, transform: nil)
+        let bodyPath = Self.mouseBodyPath(in: m.bounds.insetBy(dx: 1, dy: 1))
 
         let body = CAShapeLayer()
         body.path = bodyPath
@@ -202,10 +202,26 @@ final class GestureDemoView: NSView {
         return m
     }
 
+    /// Magic Mouse silhouette: long and slim (about 1:2.2), a fully round nose and a slightly flatter tail.
+    private static func mouseBodyPath(in r: CGRect) -> CGPath {
+        let rt = r.width / 2          // nose: full semicircle
+        let rb = r.width * 0.42       // tail: a little flatter
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: r.minX, y: r.minY + rb))
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.minY), tangent2End: CGPoint(x: r.minX + rb, y: r.minY), radius: rb)
+        p.addLine(to: CGPoint(x: r.maxX - rb, y: r.minY))
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.minY), tangent2End: CGPoint(x: r.maxX, y: r.minY + rb), radius: rb)
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - rt))
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.maxY), tangent2End: CGPoint(x: r.maxX - rt, y: r.maxY), radius: rt)
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.maxY), tangent2End: CGPoint(x: r.minX, y: r.maxY - rt), radius: rt)
+        p.closeSubpath()
+        return p
+    }
+
     private func addFingers(to mouse: CALayer, at points: [CGPoint], windows: [(Double, Double)]) {
         for p in points {
             let f = CAShapeLayer()
-            f.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
+            f.bounds = CGRect(x: 0, y: 0, width: 16, height: 16)
             f.position = p
             f.path = CGPath(ellipseIn: f.bounds.insetBy(dx: 1, dy: 1), transform: nil)
             f.fillColor = color(accent, 0.5)
@@ -297,22 +313,22 @@ final class GestureDemoView: NSView {
         makeScreen()
         switch kind {
         case .oneTap, .sideLeft: buildLeftClick(halves: kind == .sideLeft)
-        case .twoTap: buildContextClick(fingers: [CGPoint(x: 24, y: 80), CGPoint(x: 56, y: 80)], tint: nil)
-        case .sideRight: buildContextClick(fingers: [CGPoint(x: 58, y: 78)], tint: .right)
-        case .swapSides: buildContextClick(fingers: [CGPoint(x: 22, y: 78)], tint: .left)
+        case .twoTap: buildContextClick(fingers: [CGPoint(x: 14, y: 84), CGPoint(x: 38, y: 84)], tint: nil)
+        case .sideRight: buildContextClick(fingers: [CGPoint(x: 39, y: 84)], tint: .right)
+        case .swapSides: buildContextClick(fingers: [CGPoint(x: 13, y: 84)], tint: .left)
         case .threeTap: buildMiddleClick()
         case .threeDrag:
-            buildDrag(fingerSets: [[CGPoint(x: 16, y: 78), CGPoint(x: 40, y: 86), CGPoint(x: 64, y: 78)]],
+            buildDrag(fingerSets: [[CGPoint(x: 9, y: 84), CGPoint(x: 26, y: 92), CGPoint(x: 43, y: 84)]],
                       windows: [[(0.08, 0.88)]], moveFrom: 0.28, moveTo: 0.62)
         case .tapDrag:
-            buildDrag(fingerSets: [[CGPoint(x: 22, y: 78)], [CGPoint(x: 22, y: 78)]],
+            buildDrag(fingerSets: [[CGPoint(x: 13, y: 84)], [CGPoint(x: 13, y: 84)]],
                       windows: [[(0.07, 0.14)], [(0.27, 0.88)]], moveFrom: 0.42, moveTo: 0.72, firstTapRipple: 0.08)
         }
     }
 
     private func buildLeftClick(halves: Bool) {
         let mouse = makeMouse(tint: halves ? .left : nil, seam: halves)
-        addFingers(to: mouse, at: [CGPoint(x: 22, y: 78)], windows: [(0.12, 0.2)])
+        addFingers(to: mouse, at: [CGPoint(x: 13, y: 84)], windows: [(0.12, 0.2)])
         makeButton(flashAt: 0.13)
         let tip = CGPoint(x: screenCenter.x - 6, y: screenCenter.y + 6)
         _ = makeCursor(tip: tip)
@@ -321,7 +337,7 @@ final class GestureDemoView: NSView {
 
     private func buildMiddleClick() {
         let mouse = makeMouse()
-        addFingers(to: mouse, at: [CGPoint(x: 16, y: 78), CGPoint(x: 40, y: 86), CGPoint(x: 64, y: 78)], windows: [(0.12, 0.2)])
+        addFingers(to: mouse, at: [CGPoint(x: 9, y: 84), CGPoint(x: 26, y: 92), CGPoint(x: 43, y: 84)], windows: [(0.12, 0.2)])
         makeButton(flashAt: 0.13, tint: .systemOrange)
         let tip = CGPoint(x: screenCenter.x - 6, y: screenCenter.y + 6)
         _ = makeCursor(tip: tip)
