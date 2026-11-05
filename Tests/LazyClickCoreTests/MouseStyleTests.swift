@@ -123,6 +123,30 @@ final class MouseStyleTests: XCTestCase {
         XCTAssertEqual(r.begins, 0)
     }
 
+    func testFingertipShiftWhilePushingMouseStillDrags() {
+        let r = rig()
+        tap(r, leftFinger)
+        r.frame(after: 0.1, leftFinger)
+        r.cursor.x += 5; r.frame(after: 0.02, leftFinger)
+        // the push rolls the fingertip past the tap tolerance while the pointer travels
+        r.cursor.x += 10; r.frame(after: 0.02, [f(1, 0.30, 0.60)])
+        XCTAssertEqual(r.begins, 1)
+        r.lift()
+        XCTAssertEqual(r.ends, 1)
+    }
+
+    func testQuickTapThenImmediateDragWithoutPause() {
+        let r = rig()
+        tap(r, leftFinger)
+        r.cursor.x += 30                                // pointer already moving as the finger lands
+        r.frame(after: 0.1, leftFinger)
+        r.cursor.x += 10; r.frame(after: 0.04, leftFinger)
+        XCTAssertEqual(r.begins, 1)
+        r.lift()
+        XCTAssertEqual(r.ends, 1)
+        XCTAssertEqual(r.clicks.count, 1)
+    }
+
     func testTapDragDisabled() {
         let r = rig { $0.tapDragEnabled = false }
         tap(r, leftFinger)

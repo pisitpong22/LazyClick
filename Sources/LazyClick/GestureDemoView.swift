@@ -407,8 +407,11 @@ final class GestureDemoView: NSView {
             buildDrag(fingerSets: [[CGPoint(x: 9, y: 84), CGPoint(x: 26, y: 92), CGPoint(x: 43, y: 84)]],
                       windows: [[(0.08, 0.88)]], moveFrom: 0.28, moveTo: 0.62)
         case .tapDrag:
+            // Second touch lands quickly after the tap and the drag starts as soon as the pointer moves:
+            // a short settle (0.1 s).
+            let down = 0.20, a = down + 0.1 / loop
             buildDrag(fingerSets: [[CGPoint(x: 13, y: 84)], [CGPoint(x: 13, y: 84)]],
-                      windows: [[(0.07, 0.14)], [(0.27, 0.88)]], moveFrom: 0.42, moveTo: 0.72, firstTapRipple: 0.08)
+                      windows: [[(0.07, 0.12)], [(down, 0.88)]], moveFrom: a, moveTo: a + 0.3, firstTapRipple: 0.08)
         }
     }
 

@@ -135,8 +135,8 @@ public final class GestureEngine {
         dragArmed = false
         if config.style == .mouse, config.tapDragEnabled, active.count == 1,
            let prev = lastTap,
-           t - prev.time <= config.doubleClickInterval,
-           hypot(cursor.x - prev.location.x, cursor.y - prev.location.y) <= config.doubleClickDistance {
+           t - prev.time <= config.doubleClickInterval {
+            // Time only: a quick tap-and-drag is already moving the pointer when the finger lands.
             dragArmed = true
         }
         tracks.removeAll(keepingCapacity: true)
@@ -205,9 +205,9 @@ public final class GestureEngine {
     /// Mouse style: only a single, stationary-on-the-surface finger matters. A touch that follows a left tap
     /// closely becomes a drag as soon as the pointer travels; otherwise it can only end as a tap.
     private func updateMouseStyle(_ t: Double, _ cursor: CGPoint, _ physicalDown: Bool, moved: Double) {
-        if physicalDown || slid || peak >= 2 { dragArmed = false }
+        // Pushing the mouse shifts the fingertip on the surface; only a slide while the pointer is still is a scroll.
+        if physicalDown || peak >= 2 || (slid && moved < config.cursorTapTolerance) { dragArmed = false }
         if dragArmed, active.count == 1,
-           t - sessionStart >= config.dragStabilizeTime,
            moved >= config.dragActivationDistance {
             beginDrag(cursor)
             return

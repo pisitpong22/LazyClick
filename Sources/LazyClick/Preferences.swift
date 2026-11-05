@@ -16,10 +16,6 @@ enum Preferences {
         static let rightSideTap = "rightSideTap"
         static let tapDrag = "tapDrag"
         static let swapSides = "swapSides"
-        static let sensitivity = "tapSensitivity"
-        static let dragDistance = "dragActivationDistance"
-        static let dragLock = "dragLock"
-        static let dragLockTimeout = "dragLockTimeout"
         static let didPromptAccessibility = "didPromptAccessibility"
     }
 
@@ -35,10 +31,6 @@ enum Preferences {
             Key.rightSideTap: true,
             Key.tapDrag: true,
             Key.swapSides: false,
-            Key.sensitivity: 0.5,
-            Key.dragDistance: 6.0,
-            Key.dragLock: false,
-            Key.dragLockTimeout: 1.0,
         ])
     }
 
@@ -51,10 +43,6 @@ enum Preferences {
     static func double(_ key: String) -> Double { d.double(forKey: key) }
     static func set(_ value: Double, for key: String) { d.set(value, forKey: key) }
 
-    static func resetAdvanced() {
-        for k in [Key.sensitivity, Key.dragDistance, Key.dragLock, Key.dragLockTimeout] { d.removeObject(forKey: k) }
-    }
-
     static func gestureConfig() -> GestureConfig {
         var c = GestureConfig()
         c.oneFingerTapEnabled = bool(Key.oneFinger)
@@ -66,10 +54,6 @@ enum Preferences {
         c.rightSideTapEnabled = bool(Key.rightSideTap)
         c.tapDragEnabled = bool(Key.tapDrag)
         c.swapSides = bool(Key.swapSides)
-        c.tapSensitivity = min(1, max(0, double(Key.sensitivity)))
-        c.dragActivationDistance = min(40, max(2, double(Key.dragDistance)))
-        c.dragLockEnabled = bool(Key.dragLock)
-        c.dragLockTimeout = min(5, max(0.3, double(Key.dragLockTimeout)))
         return c
     }
 }

@@ -4,11 +4,11 @@ import LazyClickCore
 /// Settings panel. Built when opened, released when closed.
 /// On macOS 26+ the cards are Liquid Glass (`NSGlassEffectView`); older systems get a blurred rounded card.
 final class SettingsWindowController: NSObject, NSWindowDelegate {
-    private static let leftWidth: CGFloat = 440
+    private static let leftWidth: CGFloat = GestureDemoView.size.width
     private static let rightWidth: CGFloat = GestureDemoView.size.width
     private static let gap: CGFloat = 18
     private static let margin: CGFloat = 22
-    private static var contentWidth: CGFloat { margin * 2 + leftWidth + gap + rightWidth }
+    private static var contentWidth: CGFloat { margin * 2 + leftWidth }
 
     private var window: NSWindow?
     private var rootStack: NSStackView?
@@ -25,12 +25,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let batteryLabel = NSTextField(labelWithString: "")
 
     private var styleRadios: [NSButton] = []
-    private let sensitivity = NSSlider(value: 0.5, minValue: 0, maxValue: 1, target: nil, action: nil)
-    private let dragDistance = NSSlider(value: 6, minValue: 2, maxValue: 30, target: nil, action: nil)
-    private let dragLockTimeout = NSSlider(value: 1, minValue: 0.3, maxValue: 3, target: nil, action: nil)
-    private let sensitivityLabel = NSTextField(labelWithString: "")
-    private let dragDistanceLabel = NSTextField(labelWithString: "")
-    private let dragLockLabel = NSTextField(labelWithString: "")
 
     init(onChange: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.onChange = onChange
@@ -50,20 +44,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func reload(animated: Bool) {
         for (key, s) in switches { s.state = Preferences.bool(key) ? .on : .off }
-        sensitivity.doubleValue = Preferences.double(Preferences.Key.sensitivity)
-        dragDistance.doubleValue = Preferences.double(Preferences.Key.dragDistance)
-        dragLockTimeout.doubleValue = Preferences.double(Preferences.Key.dragLockTimeout)
-        dragLockTimeout.isEnabled = Preferences.bool(Preferences.Key.dragLock)
         for r in styleRadios { r.state = (r.tag == Preferences.style.rawValue) ? .on : .off }
         applyStyleVisibility(animated: animated)
-        updateLabels()
-    }
-
-    private func updateLabels() {
-        let s = sensitivity.doubleValue
-        sensitivityLabel.stringValue = s < 0.34 ? "Strict" : (s > 0.66 ? "Relaxed" : "Normal")
-        dragDistanceLabel.stringValue = String(format: "%.0f pt", dragDistance.doubleValue)
-        dragLockLabel.stringValue = String(format: "%.1f s", dragLockTimeout.doubleValue)
     }
 
     private func applyStyleVisibility(animated: Bool) {
@@ -135,17 +117,31 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         left.orientation = .vertical
         left.alignment = .leading
         left.spacing = 14
-        let right = NSStackView()
-        right.orientation = .vertical
-        right.alignment = .leading
-        right.spacing = 14
         stack.addArrangedSubview(left)
-        stack.addArrangedSubview(right)
 
         let lw = Self.leftWidth, rw = Self.rightWidth
 
         // ---- Left column: header, style, gestures
         left.addArrangedSubview(makeHeader())
+
+        // ---- Live preview
+        captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        captionTitle.alignment = .center
+        captionDetail.font = .systemFont(ofSize: 11)
+        captionDetail.textColor = .secondaryLabelColor
+        captionDetail.alignment = .center
+        captionDetail.preferredMaxLayoutWidth = rw - 40
+        let captions = NSStackView(views: [captionTitle, captionDetail])
+        captions.orientation = .vertical
+        captions.alignment = .centerX
+        captions.spacing = 2
+        captions.widthAnchor.constraint(equalToConstant: rw).isActive = true
+        captionDetail.widthAnchor.constraint(equalToConstant: rw - 40).isActive = true
+        let preview = NSStackView(views: [demo, captions])
+        preview.orientation = .vertical
+        preview.alignment = .centerX
+        preview.spacing = 8
+        left.insertArrangedSubview(preview, at: 1)
 
         left.addArrangedSubview(section("CHOOSE A STYLE", rows: [
             styleOptionRow(.trackpad, symbolName: "hand.point.up.left", title: "Trackpad style",
@@ -169,41 +165,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         trackpadOnly = trackpadRows
         mouseOnly = mouseRows
         left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
-
-        // ---- Right column: live preview, fine-tuning
-        captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
-        captionTitle.alignment = .center
-        captionDetail.font = .systemFont(ofSize: 11)
-        captionDetail.textColor = .secondaryLabelColor
-        captionDetail.alignment = .center
-        captionDetail.preferredMaxLayoutWidth = rw - 40
-        let captions = NSStackView(views: [captionTitle, captionDetail])
-        captions.orientation = .vertical
-        captions.alignment = .centerX
-        captions.spacing = 2
-        captions.widthAnchor.constraint(equalToConstant: rw).isActive = true
-        captionDetail.widthAnchor.constraint(equalToConstant: rw - 40).isActive = true
-        let preview = NSStackView(views: [demo, captions])
-        preview.orientation = .vertical
-        preview.alignment = .centerX
-        preview.spacing = 8
-        right.addArrangedSubview(preview)
-
-        let tuning: [NSView] = [
-            sliderRow("Tap sensitivity", sensitivity, sensitivityLabel, #selector(sensitivityChanged)),
-            sliderRow("Drag distance", dragDistance, dragDistanceLabel, #selector(dragDistanceChanged)),
-            toggleRow("Drag lock", "Keep dragging briefly after lifting your fingers", Preferences.Key.dragLock),
-            sliderRow("Drag lock time", dragLockTimeout, dragLockLabel, #selector(dragLockTimeoutChanged)),
-        ]
-        right.addArrangedSubview(section("FINE-TUNING", rows: tuning, width: rw))
-
-        let reset = NSButton(title: "Reset Fine-Tuning", target: self, action: #selector(resetAdvanced))
-        if #available(macOS 26.0, *) { reset.bezelStyle = .glass } else { reset.bezelStyle = .rounded }
-        reset.controlSize = .large
-        let footer = NSStackView(views: [NSView(), reset])
-        footer.orientation = .horizontal
-        footer.widthAnchor.constraint(equalToConstant: rw).isActive = true
-        right.addArrangedSubview(footer)
 
         w.center()
         return w
@@ -387,54 +348,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return row
     }
 
-    private func sliderRow(_ title: String, _ slider: NSSlider, _ value: NSTextField, _ action: Selector) -> NSView {
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 13, weight: .medium)
-        label.widthAnchor.constraint(equalToConstant: 112).isActive = true
-        slider.target = self
-        slider.action = action
-        slider.isContinuous = false // one write per adjustment, not a stream
-        slider.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        value.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        value.textColor = .secondaryLabelColor
-        value.alignment = .right
-        value.widthAnchor.constraint(equalToConstant: 52).isActive = true
-        let r = NSStackView(views: [label, slider, value])
-        r.orientation = .horizontal
-        r.alignment = .centerY
-        r.spacing = 10
-        return r
-    }
-
     // MARK: - Actions
 
     @objc private func switchChanged(_ sender: NSSwitch) {
         guard let key = sender.identifier?.rawValue else { return }
         Preferences.set(sender.state == .on, for: key)
         if let k = demoForKey[key] { select(k) }
-        if key == Preferences.Key.dragLock { dragLockTimeout.isEnabled = sender.state == .on }
-        onChange()
-    }
-
-    @objc private func sensitivityChanged() {
-        Preferences.set(sensitivity.doubleValue, for: Preferences.Key.sensitivity)
-        updateLabels(); onChange()
-    }
-
-    @objc private func dragDistanceChanged() {
-        Preferences.set(dragDistance.doubleValue, for: Preferences.Key.dragDistance)
-        updateLabels(); onChange()
-    }
-
-    @objc private func dragLockTimeoutChanged() {
-        Preferences.set(dragLockTimeout.doubleValue, for: Preferences.Key.dragLockTimeout)
-        updateLabels(); onChange()
-    }
-
-    @objc private func resetAdvanced() {
-        Preferences.resetAdvanced()
-        Preferences.registerDefaults()
-        reload(animated: false)
         onChange()
     }
 
