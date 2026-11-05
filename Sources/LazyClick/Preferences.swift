@@ -26,7 +26,7 @@ enum Preferences {
             Key.twoFinger: true,
             Key.threeFinger: true,
             Key.threeFingerDrag: true,
-            Key.style: 0,
+            Key.style: 1, // mouse style (Magic Mouse is the target device)
             Key.leftSideTap: true,
             Key.rightSideTap: true,
             Key.tapDrag: true,

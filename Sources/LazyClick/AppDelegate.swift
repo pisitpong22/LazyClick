@@ -70,8 +70,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !Permission.isTrusted && !Preferences.bool(Preferences.Key.didPromptAccessibility) {
             Preferences.set(true, for: Preferences.Key.didPromptAccessibility)
             Permission.request()
+            openSettings() // first launch: show something so the user knows the app is running
         }
         applyState()
+    }
+
+    /// Opening the app again (Finder/Launchpad) shows Settings, so a menu bar icon hidden by a crowded bar or the notch is never a dead end.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        openSettings()
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
