@@ -103,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             adapter.stopMonitoring()
             deviceCount = 0
         }
+        settings?.reload() // updates the permission banner
         refreshStatusIcon()
     }
 

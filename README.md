@@ -50,7 +50,18 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 - macOS 13 or newer, Apple Silicon
 - A Magic Mouse
 
-### Build & install
+### Install
+
+**Homebrew**
+
+```sh
+brew install --cask pisitpong22/tap/lazyclick
+```
+
+**Or download:** get `LazyClick.zip` from [Releases](https://github.com/pisitpong22/LazyClick/releases/latest), unzip, and drag `LazyClick.app` to Applications.
+The app is not notarized yet, so on first launch right-click → **Open** (or run `xattr -dr com.apple.quarantine /Applications/LazyClick.app`).
+
+### Build from source
 
 ```sh
 ./build.sh                                   # tests + Release build -> build/LazyClick.app
@@ -59,7 +70,7 @@ open /Applications/LazyClick.app
 ```
 
 <details>
-<summary>Build options & first-launch notes</summary>
+<summary>Build options & notes</summary>
 
 ```sh
 SKIP_TESTS=1 ./build.sh                                          # skip tests
@@ -67,8 +78,6 @@ CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh  # stable signin
 ```
 
 - Ad-hoc signed builds get a new identity on every rebuild, so macOS may ask you to re-grant Accessibility. Sign with a fixed identity to avoid that.
-- If the app came from another Mac or a download, remove the quarantine flag once:
-  `xattr -dr com.apple.quarantine /Applications/LazyClick.app`
 - *Launch at Login* works best from `/Applications`.
 
 </details>
@@ -129,6 +138,10 @@ Full design notes live in [`docs/SPEC.md`](docs/SPEC.md).
 ## 🙏 Prior art
 
 The approach (runtime-loaded MultitouchSupport, per-frame contact decoding) was studied from [slopcore/mousetoucher](https://github.com/slopcore/mousetoucher) (MIT) and [Raphe-dev/magic-mouse-touch](https://github.com/Raphe-dev/magic-mouse-touch). No code was copied; the engine, parser, controller and tests are original.
+
+## ☕ Support
+
+LazyClick is free and open source. If it saves you a few clicks, you can [buy me a coffee](https://buymeacoffee.com/pisitpong).
 
 ## 📄 License
 

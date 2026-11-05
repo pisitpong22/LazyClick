@@ -25,6 +25,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let batteryLabel = NSTextField(labelWithString: "")
 
     private var styleRadios: [NSButton] = []
+    private let permissionBanner = NSStackView()
 
     init(onChange: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.onChange = onChange
@@ -43,6 +44,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func reload() { reload(animated: window?.isVisible ?? false) }
 
     private func reload(animated: Bool) {
+        permissionBanner.isHidden = Permission.isTrusted
         for (key, s) in switches { s.state = Preferences.bool(key) ? .on : .off }
         for r in styleRadios { r.state = (r.tag == Preferences.style.rawValue) ? .on : .off }
         applyStyleVisibility(animated: animated)
@@ -123,6 +125,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         // ---- Left column: header, style, gestures
         left.addArrangedSubview(makeHeader())
+        left.addArrangedSubview(makePermissionBanner(width: lw))
 
         // ---- Live preview
         captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -168,6 +171,30 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         w.center()
         return w
+    }
+
+    /// Shown only while Accessibility access is missing, so a first-time user knows why clicks do nothing.
+    private func makePermissionBanner(width: CGFloat) -> NSView {
+        let label = NSTextField(wrappingLabelWithString: "LazyClick needs Accessibility access before it can click for you.")
+        label.font = .systemFont(ofSize: 12)
+        label.preferredMaxLayoutWidth = width - 150
+        let button = NSButton(title: "Open System Settings", target: self, action: #selector(openAccessibility))
+        button.bezelStyle = .rounded
+        permissionBanner.orientation = .horizontal
+        permissionBanner.alignment = .centerY
+        permissionBanner.spacing = 10
+        permissionBanner.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        permissionBanner.wantsLayer = true
+        permissionBanner.layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.18).cgColor
+        permissionBanner.layer?.cornerRadius = 10
+        permissionBanner.setViews([label, button], in: .leading)
+        permissionBanner.widthAnchor.constraint(equalToConstant: width).isActive = true
+        return permissionBanner
+    }
+
+    @objc private func openAccessibility() {
+        Permission.request()
+        Permission.openSettings()
     }
 
     private func symbol(_ name: String) -> NSImage? {
