@@ -16,12 +16,16 @@ public struct Contact: Equatable, Sendable {
     }
 }
 
+public enum MagnifyPhase: Sendable { case began, changed, ended }
+
 /// What the gesture engine asks the outside world to do. The engine never touches the OS itself.
 public enum GestureAction: Equatable, Sendable {
     case click(MouseButton, clickCount: Int, at: CGPoint)
     case dragBegin(at: CGPoint)
     case dragMove(to: CGPoint)
     case dragEnd(at: CGPoint)
+    /// Two-finger pinch. `amount` > 0 zooms in, < 0 zooms out (same scale as a trackpad magnify event).
+    case magnify(amount: Double, phase: MagnifyPhase)
     case startDragLockTimer(seconds: Double)
     case cancelDragLockTimer
 }

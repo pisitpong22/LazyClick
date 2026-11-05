@@ -13,6 +13,7 @@ final class MockPoster: EventPosting {
     func post(_ kind: SyntheticEventKind, button: MouseButton, clickCount: Int, at: CGPoint, delta: CGPoint) {
         events.append(Event(kind: kind, button: button, clickCount: clickCount, at: at))
     }
+    func postMagnify(_ amount: Double, phase: MagnifyPhase) {}
     var downs: Int { events.filter { $0.kind == .down }.count }
     var ups: Int { events.filter { $0.kind == .up }.count }
     var buttonHeld: Bool { downs != ups }

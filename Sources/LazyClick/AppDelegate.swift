@@ -247,23 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 
     private func showPermissionAlert() {
-        NSApp.activate(ignoringOtherApps: true)
-        let a = NSAlert()
-        a.messageText = "Accessibility access is required"
-        a.informativeText = """
-        LazyClick needs Accessibility access to send click and drag events.
-
-        1. Click “Open System Settings”.
-        2. Switch on “LazyClick” under Privacy & Security → Accessibility.
-
-        Nothing is changed automatically. Gestures start as soon as access is granted.
-        """
-        a.addButton(withTitle: "Open System Settings")
-        a.addButton(withTitle: "Cancel")
-        if a.runModal() == .alertFirstButtonReturn {
-            Permission.request()
-            Permission.openSettings()
-        }
+        Permission.request() // the system prompt already offers "Open System Settings"; a second dialog is redundant
     }
 
     // MARK: - System events (all event driven)

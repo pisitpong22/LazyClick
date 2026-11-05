@@ -523,3 +523,37 @@ final class RawParserTests: XCTestCase {
         XCTAssertTrue(out.isEmpty)
     }
 }
+
+final class PinchTests: XCTestCase {
+    private func gap(_ g: Float) -> [Contact] { [f(1, 0.5 - g / 2, 0.5), f(2, 0.5 + g / 2, 0.5)] }
+    private func amounts(_ r: Rig) -> [Double] {
+        r.actions.compactMap { if case let .magnify(a, .changed) = $0 { return a } else { return nil } }
+    }
+
+    func testSpreadingTwoFingersZoomsInAndEndsCleanly() {
+        let r = Rig()
+        r.frame(after: 0, gap(0.10))
+        for i in 1...6 { r.frame(after: 0.02, gap(0.10 + Float(i) * 0.04)) }
+        r.lift()
+        XCTAssertGreaterThan(amounts(r).reduce(0, +), 0)
+        XCTAssertTrue(r.clicks.isEmpty)
+        XCTAssertEqual(r.actions.first, .magnify(amount: 0, phase: .began))
+        XCTAssertEqual(r.actions.last, .magnify(amount: 0, phase: .ended))
+    }
+
+    func testPinchingTogetherZoomsOut() {
+        let r = Rig()
+        r.frame(after: 0, gap(0.30))
+        for i in 1...6 { r.frame(after: 0.02, gap(0.30 - Float(i) * 0.04)) }
+        r.lift()
+        XCTAssertLessThan(amounts(r).reduce(0, +), 0)
+    }
+
+    func testParallelTwoFingerSlideIsNotAPinch() {
+        let r = Rig()
+        r.frame(after: 0, two)
+        for i in 1...6 { r.frame(after: 0.02, two.map { f($0.id, $0.x, 0.5 + Float(i) * 0.04) }) }
+        r.lift()
+        XCTAssertTrue(amounts(r).isEmpty)
+    }
+}

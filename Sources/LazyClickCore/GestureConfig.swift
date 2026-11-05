@@ -37,6 +37,10 @@ public struct GestureConfig: Equatable, Sendable {
     public var dragLockTimeout: Double = 1.0
 
     // Internal
+    /// Change in the gap between two fingers (normalized) before a pinch starts.
+    public var pinchActivation: Float = 0.04
+    /// Magnify amount per unit of normalized finger-gap change.
+    public var pinchGain: Double = 3
     /// Fingers that land within this window of the first finger count as one simultaneous gesture.
     public var fingerLandWindow: Double = 0.10
     /// Three fingers must be present this long before a drag may begin (count stabilization).

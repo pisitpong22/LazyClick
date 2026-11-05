@@ -194,7 +194,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     @objc private func openAccessibility() {
         Permission.request()
-        Permission.openSettings()
     }
 
     private func symbol(_ name: String) -> NSImage? {

@@ -16,6 +16,7 @@ public final class GestureEngine {
         case session       // fingers down, undecided
         case dragging      // synthetic left button held
         case dragLockWait  // all fingers lifted, button still held until timeout / re-touch
+        case pinching      // two-finger zoom in progress
         case ignoring      // gesture disqualified; wait for all fingers to lift
     }
 
@@ -40,6 +41,7 @@ public final class GestureEngine {
     private var slid = false           // a finger slid across the surface (scroll/swipe)
     private var dragArmed = false      // mouse style: this touch follows a left tap closely -> may become a drag
     private var sessionStartX: Float = 0.5
+    private var pinchGap: Float = 0
 
     private var lastTap: (time: Double, location: CGPoint, count: Int)?
 
@@ -94,6 +96,7 @@ public final class GestureEngine {
         switch phase {
         case .session: updateSession(t, cursor, physicalButtonDown)
         case .dragging: updateDrag(cursor)
+        case .pinching: updatePinch()
         default: break
         }
     }
@@ -111,6 +114,7 @@ public final class GestureEngine {
     public func cancelAll(cursor: CGPoint) {
         if phase == .dragLockWait { emit(.cancelDragLockTimer) }
         if phase == .dragging || phase == .dragLockWait { emit(.dragEnd(at: cursor)) }
+        if phase == .pinching { emit(.magnify(amount: 0, phase: .ended)) }
         // Only demand a lift if we know fingers are on the surface; otherwise the next touch is legitimate.
         requireLift = (phase != .idle)
         phase = .idle
@@ -167,6 +171,15 @@ public final class GestureEngine {
             }
         }
 
+        if peak == 2, !physicalDown, let (now, start) = fingerGaps(), abs(now - start) > config.pinchActivation {
+            phase = .pinching
+            tapValid = false
+            pinchGap = start
+            emit(.magnify(amount: 0, phase: .began))
+            updatePinch()
+            return
+        }
+
         if physicalDown { tapValid = false }
         if t - sessionStart > config.maxTapDuration { tapValid = false }
 
@@ -215,6 +228,26 @@ public final class GestureEngine {
         if !tapValid && !dragArmed { phase = .ignoring }
     }
 
+    /// Current and session-start distance between the two fingers, nil unless exactly two tracked fingers.
+    private func fingerGaps() -> (now: Float, start: Float)? {
+        guard active.count == 2,
+              let a = tracks.first(where: { $0.id == active[0].id }),
+              let b = tracks.first(where: { $0.id == active[1].id }) else { return nil }
+        return (hypot(active[0].x - active[1].x, active[0].y - active[1].y),
+                hypot(a.startX - b.startX, a.startY - b.startY))
+    }
+
+    private func updatePinch() {
+        guard let (now, _) = fingerGaps() else { // a finger lifted or a third landed: end the zoom
+            phase = .ignoring
+            emit(.magnify(amount: 0, phase: .ended))
+            return
+        }
+        let delta = Double(now - pinchGap) * config.pinchGain
+        pinchGap = now
+        if delta != 0 { emit(.magnify(amount: delta, phase: .changed)) }
+    }
+
     private func beginDrag(_ cursor: CGPoint) {
         phase = .dragging
         tapValid = false
@@ -252,6 +285,9 @@ public final class GestureEngine {
                 phase = .idle
                 emit(.dragEnd(at: cursor))
             }
+        case .pinching:
+            phase = .idle
+            emit(.magnify(amount: 0, phase: .ended))
         case .session:
             phase = .idle
             let duration = t - sessionStart

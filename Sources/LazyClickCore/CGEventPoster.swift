@@ -15,6 +15,20 @@ public final class CGEventPoster: EventPosting {
         event.getIntegerValueField(.eventSourceUserData) == marker
     }
 
+    /// Trackpad-style magnify via the undocumented gesture event (type 29). Field numbers are reverse-engineered:
+    /// 110 = HID event type (8 = zoom), 113 = amount, 132 = NSEventPhase (1 began, 4 changed, 8 ended).
+    public func postMagnify(_ amount: Double, phase: MagnifyPhase) {
+        guard let ev = CGEvent(source: source), let type = CGEventType(rawValue: 29),
+              let fType = CGEventField(rawValue: 110), let fAmount = CGEventField(rawValue: 113),
+              let fPhase = CGEventField(rawValue: 132) else { return }
+        ev.type = type
+        ev.setIntegerValueField(fType, value: 8)
+        ev.setDoubleValueField(fAmount, value: amount)
+        ev.setIntegerValueField(fPhase, value: phase == .began ? 1 : phase == .changed ? 4 : 8)
+        ev.setIntegerValueField(.eventSourceUserData, value: Self.marker)
+        ev.post(tap: .cghidEventTap)
+    }
+
     public func post(_ kind: SyntheticEventKind, button: MouseButton, clickCount: Int, at: CGPoint, delta: CGPoint) {
         let type: CGEventType
         let cgButton: CGMouseButton
