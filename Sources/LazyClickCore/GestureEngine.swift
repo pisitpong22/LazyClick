@@ -40,6 +40,7 @@ public final class GestureEngine {
     private var lastCursor = CGPoint.zero
     private var slid = false           // a finger slid across the surface (scroll/swipe)
     private var dragArmed = false      // mouse style: this touch follows a left tap closely -> may become a drag
+    private var swipeOpen = false      // this touch can still become a back/forward swipe
     private var sessionStartX: Float = 0.5
     private var pinchGap: Float = 0
 
@@ -192,6 +193,8 @@ public final class GestureEngine {
             threeSince = nil
         }
 
+        if updateSwipe(t, physicalDown, moved: moved) { return }
+
         if config.style == .mouse {
             updateMouseStyle(t, cursor, physicalDown, moved: moved)
             return
@@ -209,7 +212,7 @@ public final class GestureEngine {
             }
         }
 
-        if !tapValid && !(config.threeFingerDragEnabled && peak >= 3) {
+        if !tapValid && !swipeOpen && !(config.threeFingerDragEnabled && peak >= 3) {
             // Nothing else can come of this session; wait for every finger to lift.
             phase = .ignoring
         }
@@ -225,7 +228,27 @@ public final class GestureEngine {
             beginDrag(cursor)
             return
         }
-        if !tapValid && !dragArmed { phase = .ignoring }
+        if !tapValid && !dragArmed && !swipeOpen { phase = .ignoring }
+    }
+
+    /// One finger flicked sideways while the mouse stays still: left-to-right = back, right-to-left = forward.
+    /// Returns true if it fired; otherwise `swipeOpen` says whether the flick can still complete.
+    private func updateSwipe(_ t: Double, _ physicalDown: Bool, moved: Double) -> Bool {
+        swipeOpen = false
+        guard config.swipeNavigationEnabled, peak == 1, active.count == 1, !physicalDown,
+              moved < config.cursorTapTolerance, t - sessionStart <= config.swipeMaxDuration,
+              let tr = tracks.first(where: { $0.id == active[0].id }) else { return false }
+        let dx = active[0].x - tr.startX
+        // The sensor is ~1.75x taller than wide, so 3x normalized is ~1.7x in real distance.
+        guard abs(dx) >= config.swipeDistance, abs(dx) > 3 * abs(active[0].y - tr.startY) else {
+            swipeOpen = true
+            return false
+        }
+        phase = .ignoring
+        tapValid = false
+        lastTap = nil
+        emit(.navigate(back: dx > 0))
+        return true
     }
 
     /// Current and session-start distance between the two fingers, nil unless exactly two tracked fingers.

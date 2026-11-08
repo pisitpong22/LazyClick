@@ -11,6 +11,7 @@ enum Preferences {
         static let twoFinger = "twoFingerTap"
         static let threeFinger = "threeFingerTap"
         static let threeFingerDrag = "threeFingerDrag"
+        static let swipeNavigation = "swipeNavigation"
         static let style = "gestureStyle"
         static let leftSideTap = "leftSideTap"
         static let rightSideTap = "rightSideTap"
@@ -29,6 +30,7 @@ enum Preferences {
             Key.twoFinger: true,
             Key.threeFinger: true,
             Key.threeFingerDrag: true,
+            Key.swipeNavigation: true,
             Key.style: 1, // mouse style (Magic Mouse is the target device)
             Key.leftSideTap: true,
             Key.rightSideTap: true,
@@ -65,6 +67,7 @@ enum Preferences {
         c.twoFingerTapEnabled = bool(Key.twoFinger)
         c.threeFingerTapEnabled = bool(Key.threeFinger)
         c.threeFingerDragEnabled = bool(Key.threeFingerDrag)
+        c.swipeNavigationEnabled = bool(Key.swipeNavigation)
         c.style = style
         c.leftSideTapEnabled = bool(Key.leftSideTap)
         c.rightSideTapEnabled = bool(Key.rightSideTap)

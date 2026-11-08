@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let controller: GestureController
     private var statusItem: NSStatusItem!
     private var settings: SettingsWindowController?
+    private var onboarding: OnboardingWindowController?
     private var permissionObserver: NSObjectProtocol?
     private var signalSources: [DispatchSourceSignal] = []
 
@@ -71,15 +72,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if !Permission.isTrusted && !Preferences.bool(Preferences.Key.didPromptAccessibility) {
             Preferences.set(true, for: Preferences.Key.didPromptAccessibility)
-            Permission.request()
-            openSettings() // first launch: show something so the user knows the app is running
+            openOnboarding()
         }
         applyState()
     }
 
     /// Opening the app again (Finder/Launchpad) shows Settings, so a menu bar icon hidden by a crowded bar or the notch is never a dead end.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        openSettings()
+        if let onboarding { onboarding.present() } else { openSettings() }
         return true
     }
 
@@ -106,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             deviceCount = 0
         }
         settings?.reload() // updates the permission banner
+        onboarding?.reload()
         refreshStatusIcon()
     }
 
@@ -251,6 +252,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             })
         }
         settings?.present()
+    }
+
+    /// Ends on Settings, so a user who skips the permission still sees the banner explaining it.
+    private func openOnboarding() {
+        onboarding = OnboardingWindowController(onClose: { [weak self] in
+            self?.onboarding = nil
+            self?.openSettings()
+        })
+        onboarding?.present()
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

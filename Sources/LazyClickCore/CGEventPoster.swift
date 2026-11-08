@@ -29,6 +29,17 @@ public final class CGEventPoster: EventPosting {
         ev.post(tap: .cghidEventTap)
     }
 
+    /// Cmd+[ / Cmd+]: the standard back/forward shortcut. Mouse buttons 4/5 are ignored by Safari and Finder.
+    public func postNavigate(back: Bool) {
+        let key: CGKeyCode = back ? 0x21 : 0x1E // kVK_ANSI_LeftBracket / kVK_ANSI_RightBracket
+        for down in [true, false] {
+            guard let ev = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { return }
+            ev.flags = .maskCommand
+            ev.setIntegerValueField(.eventSourceUserData, value: Self.marker)
+            ev.post(tap: .cghidEventTap)
+        }
+    }
+
     public func post(_ kind: SyntheticEventKind, button: MouseButton, clickCount: Int, at: CGPoint, delta: CGPoint) {
         let type: CGEventType
         let cgButton: CGMouseButton

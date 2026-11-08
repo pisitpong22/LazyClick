@@ -26,6 +26,8 @@ public enum GestureAction: Equatable, Sendable {
     case dragEnd(at: CGPoint)
     /// Two-finger pinch. `amount` > 0 zooms in, < 0 zooms out (same scale as a trackpad magnify event).
     case magnify(amount: Double, phase: MagnifyPhase)
+    /// One-finger sideways swipe: go back or forward in the frontmost app.
+    case navigate(back: Bool)
     case startDragLockTimer(seconds: Double)
     case cancelDragLockTimer
 }

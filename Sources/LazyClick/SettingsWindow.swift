@@ -169,7 +169,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         ]
         trackpadOnly = trackpadRows
         mouseOnly = mouseRows
-        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
+        let swipeRow = toggleRow("Swipe sideways", "Flick left to right = back, right to left = forward", Preferences.Key.swipeNavigation)
+        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [swipeRow], width: lw))
 
         soundPopup.addItems(withTitles: ClickSound.names)
         soundPopup.target = self

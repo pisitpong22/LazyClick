@@ -7,6 +7,7 @@ public enum SyntheticEventKind: Sendable { case down, up, dragged }
 public protocol EventPosting: AnyObject {
     func post(_ kind: SyntheticEventKind, button: MouseButton, clickCount: Int, at: CGPoint, delta: CGPoint)
     func postMagnify(_ amount: Double, phase: MagnifyPhase)
+    func postNavigate(back: Bool)
 }
 
 /// Turns engine actions into events and guarantees a held button is always released.
@@ -39,6 +40,8 @@ public final class SyntheticMouse {
             releaseHeld(at: at)
         case let .magnify(amount, phase):
             poster.postMagnify(amount, phase: phase)
+        case let .navigate(back):
+            poster.postNavigate(back: back)
         case .startDragLockTimer, .cancelDragLockTimer:
             break // handled by the controller
         }
