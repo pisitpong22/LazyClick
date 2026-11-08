@@ -1,7 +1,7 @@
 import AppKit
 import LazyClickCore
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, StatusPanelActions {
     private let adapter = MultitouchAdapter()
     private let controller: GestureController
     private var statusItem: NSStatusItem!
@@ -15,14 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var batteryTimer: Timer?
     private var abiFault = false
 
-    // Menu items updated in menuWillOpen
-    private let enabledItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
-    private let deviceItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let permissionItem = NSMenuItem(title: "Grant Accessibility Access…", action: #selector(grantPermission), keyEquivalent: "")
-    private let styleTrackpadItem = NSMenuItem(title: "Trackpad style", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let styleMouseItem = NSMenuItem(title: "Mouse style", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-    private let soundItem = NSMenuItem(title: "Click Sound", action: #selector(toggleClickSound), keyEquivalent: "")
+    private let popover = NSPopover()
+    private lazy var panel = StatusPanelController(actions: self)
+    private var lastPanelClose = Date.distantPast
 
     override init() {
         controller = GestureController(
@@ -111,41 +106,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshStatusIcon()
     }
 
-    // MARK: - Status item & menu
+    // MARK: - Status item & panel
 
     private func buildStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let menu = NSMenu()
-        menu.delegate = self
-        menu.autoenablesItems = false
-
-        for item in [enabledItem, permissionItem, loginItem, soundItem, styleTrackpadItem, styleMouseItem] { item.target = self }
-        styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
-        enabledItem.image = symbol("power")
-        deviceItem.isEnabled = false
-        permissionItem.image = symbol("lock.shield")
-        styleTrackpadItem.image = symbol("hand.point.up.left")
-        styleMouseItem.image = symbol("computermouse")
-
-        menu.addItem(enabledItem)
-        menu.addItem(deviceItem)
-        menu.addItem(permissionItem)
-        menu.addItem(.separator())
-        menu.addItem(styleTrackpadItem)
-        menu.addItem(styleMouseItem)
-        menu.addItem(.separator())
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
-        menu.addItem(soundItem)
-        menu.addItem(loginItem)
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit LazyClick", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-
-        statusItem.menu = menu
+        popover.behavior = .transient
+        popover.contentViewController = panel
+        popover.delegate = self
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePanel)
+        statusItem.button?.sendAction(on: [.leftMouseDown, .rightMouseDown])
         refreshStatusIcon()
+    }
+
+    @objc private func togglePanel(_ sender: NSStatusBarButton) {
+        if popover.isShown { popover.performClose(sender); return }
+        // A click on the icon can dismiss the transient popover first; don't let the same click reopen it.
+        guard Date().timeIntervalSince(lastPanelClose) > 0.2 else { return }
+        reloadPanel()
+        refreshBattery()
+        NSApp.activate(ignoringOtherApps: true) // Without this, ⌘Q and click-away dismissal don't work.
+        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+    }
+
+    func popoverWillClose(_ notification: Notification) { lastPanelClose = Date() }
+
+    func popoverDidClose(_ notification: Notification) {
+        if settings == nil && onboarding == nil && NSApp.modalWindow == nil { NSApp.hide(nil) } // hand focus back to the app the user was in
     }
 
     private func symbol(_ name: String, description: String? = nil) -> NSImage? {
@@ -160,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         button.image = img
         button.appearsDisabled = !isActive // dim when not handling gestures
         button.toolTip = statusText + (batteryPercent.map { " · Battery \($0)%" } ?? "")
+        if popover.isShown { reloadPanel() }
     }
 
     private func refreshBattery() {
@@ -182,53 +170,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return deviceCount > 0 ? "Magic Mouse connected" : "Magic Mouse disconnected"
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
+    private func reloadPanel() {
         let on = Preferences.bool(Preferences.Key.enabled)
-        enabledItem.state = on ? .on : .off
-        enabledItem.isEnabled = true
-
         let connected = deviceCount > 0 && on && Permission.isTrusted
-        var title = connected ? "Magic Mouse: Connected" : "Magic Mouse: Disconnected"
-        if connected, let pct = batteryPercent { title += " · \(pct)%" }
-        var icon = connected ? "checkmark.circle.fill" : "xmark.circle"
-        if !Permission.isTrusted && on { title = "Needs Accessibility permission"; icon = "lock.shield" }
-        if case .unavailable = adapter.availability { title = "Touch API unavailable"; icon = "exclamationmark.triangle" }
-        if abiFault { title = "Touch data unexpected — stopped"; icon = "exclamationmark.triangle" }
-        deviceItem.title = title
-        deviceItem.image = symbol(icon)
-        refreshBattery()
-
-        permissionItem.isHidden = Permission.isTrusted
-        let mouse = Preferences.style == .mouse
-        styleTrackpadItem.state = mouse ? .off : .on
-        styleMouseItem.state = mouse ? .on : .off
-        styleTrackpadItem.isEnabled = on
-        styleMouseItem.isEnabled = on
-        loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
-        soundItem.state = ClickSound.isOn ? .on : .off
+        var detail = on ? "Magic Mouse \(connected ? "Connected" : "Disconnected")" : "Gestures are off"
+        if connected, let pct = batteryPercent { detail += " · \(pct)%" }
+        var icon = connected ? "checkmark.circle.fill" : "xmark.circle.fill"
+        var tint: NSColor = connected ? .systemGreen : .systemGray
+        if !Permission.isTrusted && on { detail = "Needs Accessibility permission"; icon = "lock.shield.fill"; tint = .systemOrange }
+        if case .unavailable = adapter.availability { detail = "Touch API unavailable"; icon = "exclamationmark.triangle.fill"; tint = .systemOrange }
+        if abiFault { detail = "Touch data unexpected — stopped"; icon = "exclamationmark.triangle.fill"; tint = .systemOrange }
+        panel.update(.init(
+            enabled: on, detail: detail, icon: icon, tint: tint,
+            needsPermission: !Permission.isTrusted,
+            isMouseStyle: Preferences.style == .mouse,
+            clickSound: ClickSound.isOn,
+            launchAtLogin: LaunchAtLogin.isEnabled
+        ))
     }
 
     // MARK: - Actions
 
-    @objc private func toggleEnabled() {
+    func toggleEnabled() {
         Preferences.set(!Preferences.bool(Preferences.Key.enabled), for: Preferences.Key.enabled)
         if Preferences.bool(Preferences.Key.enabled) && !Permission.isTrusted { showPermissionAlert() }
         abiFault = false
         applyState()
     }
 
-    @objc private func selectStyle(_ sender: NSMenuItem) {
-        Preferences.style = GestureStyle(rawValue: sender.tag) ?? .trackpad
+    func selectStyle(_ sender: NSSegmentedControl) {
+        Preferences.style = GestureStyle(rawValue: sender.selectedSegment) ?? .trackpad
         controller.updateConfig(Preferences.gestureConfig())
         settings?.reload()
     }
 
-    @objc private func toggleClickSound() {
+    func toggleClickSound() {
         ClickSound.toggle()
         settings?.reload()
     }
 
-    @objc private func toggleLaunchAtLogin() {
+    func toggleLaunchAtLogin() {
         let target = !LaunchAtLogin.isEnabled
         if let err = LaunchAtLogin.set(target) {
             let a = NSAlert()
@@ -240,11 +221,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 NSWorkspace.shared.open(url)
             }
         }
+        reloadPanel() // a failed change must snap the switch back
     }
 
-    @objc private func grantPermission() { showPermissionAlert() }
+    func grantPermission() { showPermissionAlert() }
 
-    @objc private func openSettings() {
+    func openSettings() {
+        popover.performClose(nil)
         if settings == nil {
             settings = SettingsWindowController(onChange: { [weak self] in
                 self?.controller.updateConfig(Preferences.gestureConfig())
@@ -264,7 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         onboarding?.present()
     }
 
-    @objc private func quit() { NSApp.terminate(nil) }
+    func quit() { NSApp.terminate(nil) }
 
     private func showPermissionAlert() {
         Permission.request() // the system prompt already offers "Open System Settings"; a second dialog is redundant
