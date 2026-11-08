@@ -36,7 +36,7 @@ sed -e "s/__VERSION__/${VERSION}/" -e "s/__BUILD__/${BUILD_NUMBER}/" Resources/I
 printf 'APPL????' > "$OUT/Contents/PkgInfo"
 strip -x "$OUT/Contents/MacOS/$BIN_NAME" 2>/dev/null || true
 
-if swift scripts/make_icon.swift "$OUT/Contents/Resources/AppIcon.icns" 2>/dev/null; then
+if swift scripts/make_icon.swift Resources/AppIcon.png "$OUT/Contents/Resources/AppIcon.icns" 2>/dev/null; then
   echo "    icon generated"
 else
   echo "    (icon generation skipped)"; sed -i '' '/CFBundleIconFile/d' "$OUT/Contents/Info.plist"
