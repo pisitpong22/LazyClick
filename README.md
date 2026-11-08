@@ -150,3 +150,5 @@ LazyClick is free and open source. If it saves you a few clicks, you can [buy me
 ## 📄 License
 
 [MIT](LICENSE)
+
+The Magic Mouse click sound (`Resources/Magic Mouse.wav`) is a short excerpt of [MAGIC MOUSE.wav](https://freesound.org/people/kintana24/sounds/371223/) by kintana24, released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
