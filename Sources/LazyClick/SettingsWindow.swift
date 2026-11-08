@@ -1,9 +1,12 @@
 import AppKit
 import LazyClickCore
 
-/// Settings panel. Built when opened, released when closed.
-/// On macOS 26+ the cards are Liquid Glass (`NSGlassEffectView`); older systems get a blurred rounded card.
-final class SettingsWindowController: NSObject, NSWindowDelegate {
+/// Settings window with General and Gestures panes. Built when opened, released when closed.
+final class SettingsWindowController: NSObject, NSWindowDelegate, NSToolbarDelegate {
+    private static let generalPane = NSToolbarItem.Identifier("General")
+    private static let gesturesPane = NSToolbarItem.Identifier("Gestures")
+    /// Not a stored preference: the switch reads and writes SMAppService through `onLaunchAtLogin`.
+    private static let launchAtLoginKey = "launchAtLogin"
     private static let leftWidth: CGFloat = GestureDemoView.size.width
     private static let rightWidth: CGFloat = GestureDemoView.size.width
     private static let gap: CGFloat = 18
@@ -14,6 +17,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var rootStack: NSStackView?
     private let onChange: () -> Void
     private let onClose: () -> Void
+    private let onEnabledChange: () -> Void
+    private let onLaunchAtLogin: () -> Void
+    private let generalStack = NSStackView()
+    private let gesturesStack = NSStackView()
 
     private var switches: [String: NSSwitch] = [:]
     private var trackpadOnly: [NSView] = []
@@ -28,15 +35,25 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let permissionBanner = NSStackView()
     private let soundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
-    init(onChange: @escaping () -> Void, onClose: @escaping () -> Void) {
+    init(onChange: @escaping () -> Void, onClose: @escaping () -> Void,
+         onEnabledChange: @escaping () -> Void = {}, onLaunchAtLogin: @escaping () -> Void = {}) {
         self.onChange = onChange
         self.onClose = onClose
+        self.onEnabledChange = onEnabledChange
+        self.onLaunchAtLogin = onLaunchAtLogin
         super.init()
     }
 
     func present() {
-        if window == nil { window = makeWindow() }
+        let isNew = window == nil
+        if isNew {
+            window = makeWindow()
+            // Without the permission, open on General: it holds the banner explaining why clicks do nothing.
+            let saved = Preferences.string(Preferences.Key.settingsPane)
+            showPane(!Permission.isTrusted || saved == Self.generalPane.rawValue ? Self.generalPane : Self.gesturesPane)
+        }
         reload(animated: false)
+        if isNew { window?.center() } // after the final height is known
         refreshBattery()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
@@ -46,7 +63,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func reload(animated: Bool) {
         permissionBanner.isHidden = Permission.isTrusted
-        for (key, s) in switches { s.state = Preferences.bool(key) ? .on : .off }
+        for (key, s) in switches {
+            s.state = (key == Self.launchAtLoginKey ? LaunchAtLogin.isEnabled : Preferences.bool(key)) ? .on : .off
+        }
         for r in styleRadios { r.state = (r.tag == Preferences.style.rawValue) ? .on : .off }
         soundPopup.selectItem(withTitle: Preferences.clickSound)
         applyStyleVisibility(animated: animated)
@@ -68,7 +87,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Used by `--show-settings --demo <kind>` to preview one animation.
-    func previewDemo(_ kind: DemoKind) { select(kind) }
+    func previewDemo(_ kind: DemoKind) {
+        showPane(Self.gesturesPane)
+        select(kind)
+    }
 
     private func select(_ kind: DemoKind) {
         if demo.kind != kind { demo.show(kind) }
@@ -79,30 +101,55 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private func resizeToFit(animated: Bool) {
         guard let w = window, let stack = rootStack else { return }
         stack.layoutSubtreeIfNeeded()
-        let height = stack.fittingSize.height + 40 + 22 // top inset + bottom padding
+        let height = stack.fittingSize.height + 20 + 22 // top inset + bottom padding
         let frame = w.frameRect(forContentRect: NSRect(x: 0, y: 0, width: Self.contentWidth, height: height))
         var f = w.frame
         f.origin.y += f.height - frame.height // keep the top edge fixed
         f.size = frame.size
+        f.origin.y = max(f.origin.y, w.screen?.visibleFrame.minY ?? f.origin.y) // a taller pane must not drop below the Dock
         w.setFrame(f, display: true, animate: animated)
+    }
+
+    // MARK: - Panes
+
+    private func showPane(_ pane: NSToolbarItem.Identifier) {
+        generalStack.isHidden = pane != Self.generalPane
+        gesturesStack.isHidden = pane != Self.gesturesPane
+        window?.title = pane.rawValue
+        window?.toolbar?.selectedItemIdentifier = pane
+        Preferences.set(pane.rawValue, for: Preferences.Key.settingsPane)
+        resizeToFit(animated: window?.isVisible ?? false)
+    }
+
+    @objc private func paneSelected(_ sender: NSToolbarItem) { showPane(sender.itemIdentifier) }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [Self.generalPane, Self.gesturesPane] }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) }
+    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: id)
+        item.label = id.rawValue
+        item.image = symbol(id == Self.generalPane ? "gearshape" : "computermouse")
+        item.target = self
+        item.action = #selector(paneSelected(_:))
+        return item
     }
 
     // MARK: - Window
 
     private func makeWindow() -> NSWindow {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.contentWidth, height: 600),
-                         styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
-        w.title = "Settings"
-        w.titleVisibility = .hidden
-        w.titlebarAppearsTransparent = true
-        w.isMovableByWindowBackground = true
+                         styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.isReleasedWhenClosed = false
         w.delegate = self
+        let toolbar = NSToolbar(identifier: "Settings")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconAndLabel
+        w.toolbar = toolbar
+        w.toolbarStyle = .preference
 
-        let backdrop = NSVisualEffectView()
-        backdrop.material = .underWindowBackground
-        backdrop.blendingMode = .behindWindow
-        backdrop.state = .active
+        let backdrop = NSView()
         w.contentView = backdrop
 
         let stack = NSStackView()
@@ -112,7 +159,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         stack.translatesAutoresizingMaskIntoConstraints = false
         backdrop.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: backdrop.topAnchor, constant: 40),
+            stack.topAnchor.constraint(equalTo: backdrop.topAnchor, constant: 20),
             stack.leadingAnchor.constraint(equalTo: backdrop.leadingAnchor, constant: Self.margin),
         ])
         rootStack = stack
@@ -122,12 +169,22 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         left.alignment = .leading
         left.spacing = 14
         stack.addArrangedSubview(left)
+        for pane in [generalStack, gesturesStack] {
+            pane.orientation = .vertical
+            pane.alignment = .leading
+            pane.spacing = 14
+            left.addArrangedSubview(pane)
+        }
 
         let lw = Self.leftWidth, rw = Self.rightWidth
 
-        // ---- Left column: header, style, gestures
-        left.addArrangedSubview(makeHeader())
-        left.addArrangedSubview(makePermissionBanner(width: lw))
+        // ---- General pane
+        generalStack.addArrangedSubview(makeHeader())
+        generalStack.addArrangedSubview(makePermissionBanner(width: lw))
+        generalStack.addArrangedSubview(section("BEHAVIOR", rows: [
+            toggleRow("Enabled", "Turn all gestures on or off", Preferences.Key.enabled),
+            toggleRow("Launch at login", "Start LazyClick when you log in", Self.launchAtLoginKey),
+        ], width: lw))
 
         // ---- Live preview
         captionTitle.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -146,9 +203,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         preview.orientation = .vertical
         preview.alignment = .centerX
         preview.spacing = 8
-        left.insertArrangedSubview(preview, at: 1)
+        gesturesStack.addArrangedSubview(preview)
 
-        left.addArrangedSubview(section("CHOOSE A STYLE", rows: [
+        gesturesStack.addArrangedSubview(section("CHOOSE A STYLE", rows: [
             styleOptionRow(.trackpad, symbolName: "hand.point.up.left", title: "Trackpad style",
                            detail: "Tap with 1, 2 or 3 fingers = left, right, middle click. Three-finger drag."),
             styleOptionRow(.mouse, symbolName: "computermouse", title: "Mouse style",
@@ -170,7 +227,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         trackpadOnly = trackpadRows
         mouseOnly = mouseRows
         let swipeRow = toggleRow("Swipe sideways", "Flick left to right = back, right to left = forward", Preferences.Key.swipeNavigation)
-        left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [swipeRow], width: lw))
+        gesturesStack.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows + [swipeRow], width: lw))
 
         soundPopup.addItems(withTitles: ClickSound.names)
         soundPopup.target = self
@@ -179,12 +236,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                               target: self, action: #selector(volumeChanged(_:)))
         volume.isContinuous = false // save and preview once on release, not on every step of the drag
         volume.widthAnchor.constraint(equalToConstant: 160).isActive = true
-        left.addArrangedSubview(section("CLICK SOUND", rows: [
+        generalStack.addArrangedSubview(section("CLICK SOUND", rows: [
             controlRow("Sound", soundPopup),
             controlRow("Volume", volume),
         ], width: lw))
 
-        w.center()
         return w
     }
 
@@ -193,7 +249,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let label = NSTextField(wrappingLabelWithString: "LazyClick needs Accessibility access before it can click for you.")
         label.font = .systemFont(ofSize: 12)
         label.preferredMaxLayoutWidth = width - 150
-        let button = NSButton(title: "Open System Settings", target: self, action: #selector(openAccessibility))
+        let button = NSButton(title: "Open System Settings…", target: self, action: #selector(openAccessibility))
         button.bezelStyle = .rounded
         permissionBanner.orientation = .horizontal
         permissionBanner.alignment = .centerY
@@ -270,29 +326,22 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             rowsStack.trailingAnchor.constraint(equalTo: holder.trailingAnchor, constant: -16),
         ])
 
-        let card: NSView
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = 20
-            glass.contentView = holder
-            card = glass
-        } else {
-            let blur = NSVisualEffectView()
-            blur.material = .popover
-            blur.blendingMode = .withinWindow
-            blur.state = .active
-            blur.wantsLayer = true
-            blur.layer?.cornerRadius = 14
-            blur.layer?.masksToBounds = true
-            blur.addSubview(holder)
-            NSLayoutConstraint.activate([
-                holder.topAnchor.constraint(equalTo: blur.topAnchor),
-                holder.bottomAnchor.constraint(equalTo: blur.bottomAnchor),
-                holder.leadingAnchor.constraint(equalTo: blur.leadingAnchor),
-                holder.trailingAnchor.constraint(equalTo: blur.trailingAnchor),
-            ])
-            card = blur
-        }
+        // NSBox, because its colors follow light and dark mode without a layer.
+        let card = NSBox()
+        card.boxType = .custom
+        card.titlePosition = .noTitle
+        card.fillColor = NSColor.labelColor.withAlphaComponent(0.06)
+        card.borderColor = .separatorColor
+        card.borderWidth = 0.5
+        card.cornerRadius = 12
+        card.contentViewMargins = .zero
+        card.addSubview(holder)
+        NSLayoutConstraint.activate([
+            holder.topAnchor.constraint(equalTo: card.topAnchor),
+            holder.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            holder.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            holder.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+        ])
         card.translatesAutoresizingMaskIntoConstraints = false
         card.widthAnchor.constraint(equalToConstant: width).isActive = true
 
@@ -306,6 +355,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private func styleOptionRow(_ style: GestureStyle, symbolName: String, title: String, detail: String) -> NSView {
         let radio = NSButton(radioButtonWithTitle: "", target: self, action: #selector(styleRadioChanged(_:)))
         radio.tag = style.rawValue
+        radio.setAccessibilityLabel(title)
+        radio.setAccessibilityHelp(detail)
         radio.setContentHuggingPriority(.required, for: .horizontal)
         radio.setContentCompressionResistancePriority(.required, for: .horizontal)
         radio.widthAnchor.constraint(equalToConstant: 20).isActive = true
@@ -368,6 +419,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         sw.target = self
         sw.action = #selector(switchChanged(_:))
         sw.identifier = NSUserInterfaceItemIdentifier(key)
+        sw.setAccessibilityLabel(title)
+        sw.setAccessibilityHelp(detail)
         switches[key] = sw
 
         labels.setContentHuggingPriority(.required, for: .horizontal)
@@ -419,7 +472,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     @objc private func switchChanged(_ sender: NSSwitch) {
         guard let key = sender.identifier?.rawValue else { return }
+        if key == Self.launchAtLoginKey {
+            onLaunchAtLogin()
+            reload() // a failed change must snap the switch back
+            return
+        }
         Preferences.set(sender.state == .on, for: key)
+        if key == Preferences.Key.enabled { onEnabledChange(); return }
         if let k = demoForKey[key] { select(k) }
         onChange()
     }

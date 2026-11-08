@@ -21,6 +21,7 @@ enum Preferences {
         static let clickSound = "clickSound"
         static let clickVolume = "clickVolume"
         static let lastClickSound = "lastClickSound"
+        static let settingsPane = "settingsPane"
     }
 
     static func registerDefaults() {

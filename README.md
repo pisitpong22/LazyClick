@@ -96,7 +96,7 @@ Gestures start automatically once access is granted. Reading touches needs no pe
 
 ## 🧭 Using it
 
-Click the menu bar icon for **Enabled**, **Magic Mouse status + battery**, the **gesture style**, **Click Sound**, **Settings**, **Launch at Login** and **Quit**. Turning *Enabled* off instantly releases any synthetic button and stops all injection.
+Click the menu bar icon for **Magic Mouse status + battery**, **Enabled**, the **gesture style**, **Click Sound**, **Settings** and **Quit**. *Launch at Login* is in Settings → General. Turning *Enabled* off instantly releases any synthetic button and stops all injection.
 
 ## 🔧 Troubleshooting
 
