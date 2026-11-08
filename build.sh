@@ -31,6 +31,7 @@ echo "==> Assembling ${OUT}"
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 cp "$BIN_DIR/$BIN_NAME" "$OUT/Contents/MacOS/$BIN_NAME"
+cp "Resources/Magic Mouse.wav" "$OUT/Contents/Resources/"
 sed -e "s/__VERSION__/${VERSION}/" -e "s/__BUILD__/${BUILD_NUMBER}/" Resources/Info.plist > "$OUT/Contents/Info.plist"
 printf 'APPL????' > "$OUT/Contents/PkgInfo"
 strip -x "$OUT/Contents/MacOS/$BIN_NAME" 2>/dev/null || true

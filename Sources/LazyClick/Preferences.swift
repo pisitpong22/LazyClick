@@ -19,6 +19,7 @@ enum Preferences {
         static let didPromptAccessibility = "didPromptAccessibility"
         static let clickSound = "clickSound"
         static let clickVolume = "clickVolume"
+        static let lastClickSound = "lastClickSound"
     }
 
     static func registerDefaults() {
@@ -33,8 +34,9 @@ enum Preferences {
             Key.rightSideTap: true,
             Key.tapDrag: true,
             Key.swapSides: false,
-            Key.clickSound: "None",
-            Key.clickVolume: 0.5,
+            Key.clickSound: "Magic Mouse",
+            Key.clickVolume: 0.2,
+            Key.lastClickSound: "Magic Mouse",
         ])
     }
 
@@ -48,6 +50,14 @@ enum Preferences {
     static func set(_ value: Double, for key: String) { d.set(value, forKey: key) }
     static func string(_ key: String) -> String { d.string(forKey: key) ?? "" }
     static func set(_ value: String, for key: String) { d.set(value, forKey: key) }
+    /// Setting this remembers the outgoing sound, so turning sound back on restores it.
+    static var clickSound: String {
+        get { string(Key.clickSound) }
+        set {
+            if clickSound != "None" { set(clickSound, for: Key.lastClickSound) }
+            set(newValue, for: Key.clickSound)
+        }
+    }
 
     static func gestureConfig() -> GestureConfig {
         var c = GestureConfig()

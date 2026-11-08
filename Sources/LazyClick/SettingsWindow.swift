@@ -26,6 +26,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private var styleRadios: [NSButton] = []
     private let permissionBanner = NSStackView()
+    private let soundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
     init(onChange: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.onChange = onChange
@@ -47,6 +48,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         permissionBanner.isHidden = Permission.isTrusted
         for (key, s) in switches { s.state = Preferences.bool(key) ? .on : .off }
         for r in styleRadios { r.state = (r.tag == Preferences.style.rawValue) ? .on : .off }
+        soundPopup.selectItem(withTitle: Preferences.clickSound)
         applyStyleVisibility(animated: animated)
     }
 
@@ -169,9 +171,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         mouseOnly = mouseRows
         left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
 
-        let soundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         soundPopup.addItems(withTitles: ClickSound.names)
-        soundPopup.selectItem(withTitle: Preferences.string(Preferences.Key.clickSound))
         soundPopup.target = self
         soundPopup.action = #selector(soundChanged(_:))
         let volume = NSSlider(value: Preferences.double(Preferences.Key.clickVolume), minValue: 0, maxValue: 1,
@@ -407,7 +407,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     // MARK: - Actions
 
     @objc private func soundChanged(_ sender: NSPopUpButton) {
-        Preferences.set(sender.titleOfSelectedItem ?? "None", for: Preferences.Key.clickSound)
+        Preferences.clickSound = sender.titleOfSelectedItem ?? "None"
         ClickSound.play()
     }
 

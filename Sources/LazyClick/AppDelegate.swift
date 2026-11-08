@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let styleTrackpadItem = NSMenuItem(title: "Trackpad style", action: #selector(selectStyle(_:)), keyEquivalent: "")
     private let styleMouseItem = NSMenuItem(title: "Mouse style", action: #selector(selectStyle(_:)), keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+    private let soundItem = NSMenuItem(title: "Click Sound", action: #selector(toggleClickSound), keyEquivalent: "")
 
     override init() {
         controller = GestureController(
@@ -116,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
 
-        for item in [enabledItem, permissionItem, loginItem, styleTrackpadItem, styleMouseItem] { item.target = self }
+        for item in [enabledItem, permissionItem, loginItem, soundItem, styleTrackpadItem, styleMouseItem] { item.target = self }
         styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
         enabledItem.image = symbol("power")
         deviceItem.isEnabled = false
@@ -134,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        menu.addItem(soundItem)
         menu.addItem(loginItem)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit LazyClick", action: #selector(quit), keyEquivalent: "q")
@@ -201,6 +203,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         styleTrackpadItem.isEnabled = on
         styleMouseItem.isEnabled = on
         loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
+        soundItem.state = ClickSound.isOn ? .on : .off
     }
 
     // MARK: - Actions
@@ -215,6 +218,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func selectStyle(_ sender: NSMenuItem) {
         Preferences.style = GestureStyle(rawValue: sender.tag) ?? .trackpad
         controller.updateConfig(Preferences.gestureConfig())
+        settings?.reload()
+    }
+
+    @objc private func toggleClickSound() {
+        ClickSound.toggle()
         settings?.reload()
     }
 
