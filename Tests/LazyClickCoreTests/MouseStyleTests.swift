@@ -166,6 +166,45 @@ final class MouseStyleTests: XCTestCase {
         XCTAssertEqual(r.begins, 0)
     }
 
+    func testRegionSelectDetectionFromObservedWindowLists() {
+        func w(_ owner: String, _ layer: Int) -> [String: Any] {
+            [kCGWindowOwnerName as String: owner, kCGWindowLayer as String: layer]
+        }
+        let idleOverlay = w("Screenshot", 24)
+        XCTAssertFalse(GestureEngine.regionSelecting(windows: [idleOverlay, w("Finder", 0)]), "no capture running")
+        XCTAssertTrue(GestureEngine.regionSelecting(windows: [idleOverlay, w("screencapture", 1498)]), "crosshair")
+        XCTAssertTrue(GestureEngine.regionSelecting(windows: [w("screencapture", 1498)]))
+        XCTAssertFalse(GestureEngine.regionSelecting(windows: [idleOverlay, w("Screenshot", 1499), w("screencapture", 1498)]),
+                       "Cmd+Shift+5 toolbar")
+    }
+
+    func testRegionSelectTapsDoNotClick() {
+        let r = rig(); r.engine.isRegionSelecting = { true }
+        tap(r, leftFinger); tap(r, rightFinger)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testRegionSelectTouchAndMoveDragsWithoutPriorTap() {
+        let r = rig(); r.engine.isRegionSelecting = { true }
+        let start = r.cursor
+        r.frame(after: 0.3, leftFinger)
+        for _ in 0..<5 { r.cursor.x += 10; r.frame(after: 0.011, leftFinger) }
+        XCTAssertEqual(r.actions.first, .dragBegin(at: start))
+        XCTAssertEqual(r.ends, 0)
+        r.lift()
+        XCTAssertEqual(r.ends, 1)
+        XCTAssertTrue(r.clicks.isEmpty)
+    }
+
+    func testRegionSelectKeepsNormalTapsWhenTapDragIsOff() {
+        let r = rig { $0.tapDragEnabled = false }; r.engine.isRegionSelecting = { true }
+        tap(r, leftFinger)
+        XCTAssertEqual(r.clicks.count, 1)
+        r.frame(after: 0.1, leftFinger)
+        r.cursor.x += 30; r.frame(after: 0.05, leftFinger)
+        XCTAssertEqual(r.begins, 0)
+    }
+
     private func swipe(_ r: Rig, from x0: Float, to x1: Float, y1: Float = 0.5, step: Double = 0.05) {
         r.frame(after: 0.5, [f(1, x0, 0.5)])
         r.frame(after: step, [f(1, (x0 + x1) / 2, (0.5 + y1) / 2)])

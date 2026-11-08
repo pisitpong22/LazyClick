@@ -30,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             timer: OneShotTimer(),
             config: GestureConfig(),
             cursorProvider: CursorState.location,
-            physicalButtonProvider: CursorState.physicalButtonDown
+            physicalButtonProvider: CursorState.physicalButtonDown,
+            regionSelectingProvider: CursorState.regionSelecting
         )
         super.init()
     }

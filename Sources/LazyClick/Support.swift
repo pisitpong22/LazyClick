@@ -92,6 +92,10 @@ enum CursorState {
             || CGEventSource.buttonState(s, button: .right)
             || CGEventSource.buttonState(s, button: .center)
     }
+
+    static func regionSelecting() -> Bool {
+        GestureEngine.regionSelecting(windows: CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? [])
+    }
 }
 
 

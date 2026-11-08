@@ -32,13 +32,15 @@ public final class GestureController {
                 timer: DragLockTimer,
                 config: GestureConfig = GestureConfig(),
                 cursorProvider: @escaping () -> CGPoint,
-                physicalButtonProvider: @escaping () -> Bool) {
+                physicalButtonProvider: @escaping () -> Bool,
+                regionSelectingProvider: @escaping () -> Bool = { false }) {
         self.engine = GestureEngine(config: config)
         self.mouse = SyntheticMouse(poster: poster)
         self.timer = timer
         self.cursorProvider = cursorProvider
         self.physicalButtonProvider = physicalButtonProvider
         scratch.reserveCapacity(MTLayout.maxPlausibleContacts)
+        engine.isRegionSelecting = regionSelectingProvider
         engine.onAction = { [unowned self] action in self.perform(action) }
     }
 

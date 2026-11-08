@@ -10,6 +10,9 @@ import Foundation
 public final class GestureEngine {
     public var config: GestureConfig
     public var onAction: ((GestureAction) -> Void)?
+    /// Asked once per touch in mouse style: is the OS region-screenshot crosshair up?
+    /// Any click there ends the selection, so tap-then-drag can't work.
+    public var isRegionSelecting: () -> Bool = { false }
 
     private enum Phase {
         case idle          // no fingers
@@ -40,6 +43,7 @@ public final class GestureEngine {
     private var lastCursor = CGPoint.zero
     private var slid = false           // a finger slid across the surface (scroll/swipe)
     private var dragArmed = false      // mouse style: this touch follows a left tap closely -> may become a drag
+    private var regionDrag = false     // mouse style: this touch landed during a region screenshot
     private var swipeOpen = false      // this touch can still become a back/forward swipe
     private var sessionStartX: Float = 0.5
     private var pinchGap: Float = 0
@@ -50,6 +54,18 @@ public final class GestureEngine {
         self.config = config
         tracks.reserveCapacity(8)
         active.reserveCapacity(8)
+    }
+
+    /// Reads a CGWindowList result. `screencapture` owns a window while the crosshair is up. "Screenshot" always has a
+    /// low full-screen window, and only the Cmd+Shift+5 toolbar, which needs real clicks, sits above the crosshair.
+    /// shortcut: "Screenshot" is the name seen on this Mac, switch to a pid/bundle-id check if another locale renames it.
+    public static func regionSelecting(windows: [[String: Any]]) -> Bool {
+        func topLayer(_ owner: String) -> Int {
+            windows.filter { $0[kCGWindowOwnerName as String] as? String == owner }
+                .compactMap { $0[kCGWindowLayer as String] as? Int }.max() ?? -1
+        }
+        let crosshair = topLayer("screencapture")
+        return crosshair >= 0 && topLayer("Screenshot") < crosshair
     }
 
     public var isIdle: Bool { phase == .idle && !requireLift }
@@ -138,9 +154,9 @@ public final class GestureEngine {
         sessionStartX = active.first?.x ?? 0.5
         threeSince = nil
         dragArmed = false
+        regionDrag = config.style == .mouse && config.tapDragEnabled && isRegionSelecting()
         if config.style == .mouse, config.tapDragEnabled, active.count == 1,
-           let prev = lastTap,
-           t - prev.time <= config.doubleClickInterval {
+           regionDrag || lastTap.map({ t - $0.time <= config.doubleClickInterval }) == true {
             // Time only: a quick tap-and-drag is already moving the pointer when the finger lands.
             dragArmed = true
         }
@@ -326,7 +342,7 @@ public final class GestureEngine {
 
     private func emitTap(peak: Int, time t: Double, cursor: CGPoint) {
         if config.style == .mouse {
-            guard peak == 1 else { return }
+            guard peak == 1, !regionDrag else { return }
             let isLeftHalf = (sessionStartX < config.sideSplit) != config.swapSides
             if isLeftHalf {
                 if config.leftSideTapEnabled { emitLeftTap(time: t, cursor: cursor) }
