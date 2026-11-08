@@ -66,6 +66,8 @@ The app is not notarized yet, so on first launch right-click → **Open** (or ru
 
 ```sh
 ./build.sh                                   # tests + Release build -> build/LazyClick.app
+pkill -x LazyClick                           # quit the old copy; replacing a running app makes open fail
+rm -rf /Applications/LazyClick.app
 cp -R build/LazyClick.app /Applications/
 open /Applications/LazyClick.app
 ```

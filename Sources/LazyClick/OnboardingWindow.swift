@@ -1,6 +1,6 @@
 import AppKit
 
-/// First-run window: what LazyClick does, then a page where the user grants Accessibility access.
+/// First-run window: the pitch, the features, then a page where the user grants Accessibility access.
 /// Built when opened, released when closed.
 final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private static let contentWidth = GestureDemoView.size.width
@@ -8,13 +8,16 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     private var window: NSWindow?
     private let onClose: () -> Void
-    private var onPermissionPage = false
+    private var page = 0
+    private var onPermissionPage: Bool { page == pages.count - 1 }
     private var askedSystem = false
     private var wasTrusted = Permission.isTrusted
 
     private let demo = GestureDemoView(frame: NSRect(origin: .zero, size: GestureDemoView.size))
-    private let welcomePage = NSStackView()
+    private let introPage = NSStackView()
+    private let featuresPage = NSStackView()
     private let permissionPage = NSStackView()
+    private var pages: [NSStackView] { [introPage, featuresPage, permissionPage] }
     private let statusBanner = NSStackView()
     private let statusIcon = NSImageView()
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
@@ -34,18 +37,17 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// Used by `--show-onboarding --permission` to preview the second page.
-    func showPermissionPage() {
-        onPermissionPage = true
+    /// Used by `--show-onboarding --page <n>` to preview one page.
+    func showPage(_ n: Int) {
+        page = max(0, min(n, pages.count - 1))
         reload()
     }
 
     /// Also called when the system reports an Accessibility change.
     func reload() {
         let trusted = Permission.isTrusted
-        welcomePage.isHidden = onPermissionPage
-        permissionPage.isHidden = !onPermissionPage
-        backButton.isHidden = !onPermissionPage
+        for (i, p) in pages.enumerated() { p.isHidden = i != page }
+        backButton.isHidden = page == 0
         notNowButton.isHidden = !onPermissionPage || trusted
         primaryButton.title = !onPermissionPage ? "Continue" : trusted ? "Get Started" : "Allow Access…"
 
@@ -69,7 +71,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     @objc private func primaryClicked() {
         if !onPermissionPage {
-            onPermissionPage = true
+            page += 1
             reload()
         } else if Permission.isTrusted {
             window?.close()
@@ -82,7 +84,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     }
 
     @objc private func backClicked() {
-        onPermissionPage = false
+        page -= 1
         reload()
     }
 
@@ -113,13 +115,14 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         backdrop.translatesAutoresizingMaskIntoConstraints = false
         w.contentView = backdrop
 
-        buildWelcomePage()
+        buildIntroPage()
+        buildFeaturesPage()
         buildPermissionPage()
 
-        // Both pages share one slot, so the window keeps its size when switching.
+        // All pages share one slot, so the window keeps its size when switching.
         let slot = NSView()
         slot.translatesAutoresizingMaskIntoConstraints = false
-        for page in [welcomePage, permissionPage] {
+        for page in pages {
             page.orientation = .vertical
             page.alignment = .centerX
             page.spacing = 18
@@ -152,26 +155,49 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         return w
     }
 
-    private func buildWelcomePage() {
+    private func buildIntroPage() {
+        let icon = NSImageView()
+        icon.image = NSApp.applicationIconImage
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        icon.widthAnchor.constraint(equalToConstant: 112).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 112).isActive = true
+        let name = NSTextField(labelWithString: "LazyClick")
+        name.font = .systemFont(ofSize: 15, weight: .semibold)
+        name.textColor = .secondaryLabelColor
+        let headline = NSTextField(wrappingLabelWithString: "Why press…\nwhen you can tap?")
+        headline.font = .systemFont(ofSize: 40, weight: .bold)
+        headline.alignment = .center
+        headline.preferredMaxLayoutWidth = Self.contentWidth
+        let line = NSTextField(labelWithString: "No pressing. Just tap.")
+        line.font = .systemFont(ofSize: 17)
+        line.textColor = .secondaryLabelColor
+
+        introPage.setViews([icon, name, headline, line], in: .top)
+        introPage.setCustomSpacing(6, after: icon)
+        introPage.setCustomSpacing(26, after: name)
+        introPage.setCustomSpacing(12, after: headline)
+    }
+
+    private func buildFeaturesPage() {
         demo.show(.sideLeft)
         demo.widthAnchor.constraint(equalToConstant: GestureDemoView.size.width).isActive = true
         demo.heightAnchor.constraint(equalToConstant: GestureDemoView.size.height).isActive = true
 
         let columnText: CGFloat = (Self.contentWidth - 24) / 2 - 40
         let cells = [
-            [featureRow("hand.tap", "Tap to click", "Tap the left or right half of the mouse.", columnText, demo: .sideLeft),
-             featureRow("hand.draw", "Tap and drag", "Tap, touch again and move. Lift to drop.", columnText, demo: .tapDrag)],
-            [featureRow("hand.point.up.left", "Two styles", "Mouse style, or 1, 2 and 3-finger taps.", columnText, demo: .oneTap),
+            [featureRow("computermouse", "Mouse Mode", "Tap the left or right half to click. Tap, touch again and move to drag.", columnText, demo: .tapDrag),
+             featureRow("hand.point.up.left", "Trackpad Mode", "Tap with 1, 2 or 3 fingers to click. Rest three fingers and move to drag.", columnText, demo: .twoTap)],
+            [featureRow("speaker.wave.2", "Click Sound", "Hear a click with every tap. Pick a sound and volume, or turn it off.", columnText),
              featureRow("arrow.left.arrow.right", "Swipe to navigate", "Flick sideways to go back or forward.", columnText)],
-            [featureRow("speaker.wave.2", "Click sounds", "Pick a sound and volume, or turn it off.", columnText),
+            [featureRow("arrow.left.and.right.righttriangle.left.righttriangle.right", "Swap left and right", "Made for left-handed use.", columnText, demo: .swapSides),
              featureRow("battery.75", "Mouse battery", "See the charge in the menu bar.", columnText)],
         ]
         let grid = NSGridView(views: cells)
         grid.rowSpacing = 14
         grid.columnSpacing = 24
 
-        welcomePage.setViews([
-            makeHeader(image: NSApp.applicationIconImage, title: "Welcome to LazyClick", subtitle: "Tap to click on your Magic Mouse."),
+        featuresPage.setViews([
+            makeHeader(image: nil, title: "Mouse Mode or Trackpad Mode", subtitle: "Your choice. Switch anytime in Settings."),
             demo,
             grid,
         ], in: .top)
@@ -213,6 +239,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private func makeHeader(image: NSImage?, title: String, subtitle: String) -> NSView {
         let icon = NSImageView()
         icon.image = image
+        icon.isHidden = image == nil
         icon.contentTintColor = .controlAccentColor
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.widthAnchor.constraint(equalToConstant: 64).isActive = true

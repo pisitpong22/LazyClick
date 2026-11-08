@@ -43,10 +43,12 @@ else
 fi
 
 echo "==> Signing (identity: ${IDENTITY/#-/ad-hoc})"
-codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --timestamp=none "$OUT"
+# Hardened runtime: otherwise DYLD_INSERT_LIBRARIES lets other code inherit the Accessibility grant.
+codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --options runtime --timestamp=none "$OUT"
 codesign --verify --verbose=1 "$OUT"
 
 echo "==> Architecture: $(lipo -archs "$OUT/Contents/MacOS/$BIN_NAME")"
 echo "==> Size: $(du -sh "$OUT" | cut -f1)"
 echo "Built: $PWD/$OUT"
-echo "Install: cp -R \"$OUT\" /Applications/ && open \"/Applications/${APP_NAME}.app\""
+# Quit and delete first: cp -R over a running signed app gets it killed and open fails with -609.
+echo "Install: pkill -x $BIN_NAME; rm -rf \"/Applications/${APP_NAME}.app\" && cp -R \"$OUT\" /Applications/ && open \"/Applications/${APP_NAME}.app\""

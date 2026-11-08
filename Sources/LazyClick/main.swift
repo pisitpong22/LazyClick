@@ -22,13 +22,16 @@ if CommandLine.arguments.contains("--show-settings") {
     preview.run()
 }
 
-// `LazyClick --show-onboarding [--permission]` opens only the first-run window for UI checks.
+// `LazyClick --show-onboarding [--page <n>]` opens only the first-run window for UI checks.
 if CommandLine.arguments.contains("--show-onboarding") {
     let preview = NSApplication.shared
     preview.setActivationPolicy(.regular)
     let controller = OnboardingWindowController(onClose: { exit(0) })
     controller.present()
-    if CommandLine.arguments.contains("--permission") { controller.showPermissionPage() }
+    if let i = CommandLine.arguments.firstIndex(of: "--page"), i + 1 < CommandLine.arguments.count,
+       let n = Int(CommandLine.arguments[i + 1]) {
+        controller.showPage(n)
+    }
     preview.run()
 }
 
