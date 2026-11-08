@@ -169,6 +169,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         mouseOnly = mouseRows
         left.addArrangedSubview(section("GESTURES", rows: trackpadRows + mouseRows, width: lw))
 
+        let soundPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        soundPopup.addItems(withTitles: ClickSound.names)
+        soundPopup.selectItem(withTitle: Preferences.string(Preferences.Key.clickSound))
+        soundPopup.target = self
+        soundPopup.action = #selector(soundChanged(_:))
+        let volume = NSSlider(value: Preferences.double(Preferences.Key.clickVolume), minValue: 0, maxValue: 1,
+                              target: self, action: #selector(volumeChanged(_:)))
+        volume.isContinuous = false // save and preview once on release, not on every step of the drag
+        volume.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        left.addArrangedSubview(section("CLICK SOUND", rows: [
+            controlRow("Sound", soundPopup),
+            controlRow("Volume", volume),
+        ], width: lw))
+
         w.center()
         return w
     }
@@ -374,7 +388,33 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return row
     }
 
+    private func controlRow(_ title: String, _ control: NSControl) -> NSView {
+        let t = NSTextField(labelWithString: title)
+        t.font = .systemFont(ofSize: 13, weight: .medium)
+        t.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setAccessibilityLabel(title)
+        let flex = NSView()
+        flex.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .horizontal)
+        let row = NSStackView(views: [t, flex, control])
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.distribution = .fill
+        row.spacing = 8
+        return row
+    }
+
     // MARK: - Actions
+
+    @objc private func soundChanged(_ sender: NSPopUpButton) {
+        Preferences.set(sender.titleOfSelectedItem ?? "None", for: Preferences.Key.clickSound)
+        ClickSound.play()
+    }
+
+    @objc private func volumeChanged(_ sender: NSSlider) {
+        Preferences.set(sender.doubleValue, for: Preferences.Key.clickVolume)
+        ClickSound.play()
+    }
 
     @objc private func switchChanged(_ sender: NSSwitch) {
         guard let key = sender.identifier?.rawValue else { return }

@@ -17,6 +17,8 @@ enum Preferences {
         static let tapDrag = "tapDrag"
         static let swapSides = "swapSides"
         static let didPromptAccessibility = "didPromptAccessibility"
+        static let clickSound = "clickSound"
+        static let clickVolume = "clickVolume"
     }
 
     static func registerDefaults() {
@@ -31,6 +33,8 @@ enum Preferences {
             Key.rightSideTap: true,
             Key.tapDrag: true,
             Key.swapSides: false,
+            Key.clickSound: "None",
+            Key.clickVolume: 0.5,
         ])
     }
 
@@ -42,6 +46,8 @@ enum Preferences {
     static func set(_ value: Bool, for key: String) { d.set(value, forKey: key) }
     static func double(_ key: String) -> Double { d.double(forKey: key) }
     static func set(_ value: Double, for key: String) { d.set(value, forKey: key) }
+    static func string(_ key: String) -> String { d.string(forKey: key) ?? "" }
+    static func set(_ value: String, for key: String) { d.set(value, forKey: key) }
 
     static func gestureConfig() -> GestureConfig {
         var c = GestureConfig()

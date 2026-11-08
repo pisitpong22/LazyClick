@@ -25,6 +25,9 @@ public final class GestureController {
     /// Called (from the touch thread) once if the private ABI looks wrong and handling was disabled.
     public var onABIFault: (() -> Void)?
 
+    /// Called (from the touch thread, holding the lock) for each synthetic click. Must return immediately.
+    public var onClick: (() -> Void)?
+
     public init(poster: EventPosting,
                 timer: DragLockTimer,
                 config: GestureConfig = GestureConfig(),
@@ -128,6 +131,7 @@ public final class GestureController {
             timer.cancel()
         default:
             mouse.apply(action)
+            if case .click = action { onClick?() }
         }
     }
 

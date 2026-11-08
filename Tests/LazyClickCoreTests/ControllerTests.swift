@@ -75,6 +75,16 @@ final class ControllerTests: XCTestCase {
         XCTAssertFalse(poster.buttonHeld)
     }
 
+    func testOnClickFiresForTapsButNotDrags() {
+        var clicks = 0
+        controller.onClick = { clicks += 1 }
+        frame(0, one); frame(0.05, [])
+        XCTAssertEqual(clicks, 1)
+        frame(0.5, []); dragStart(); frame(0.01, [])
+        XCTAssertEqual(poster.downs, 2, "the drag really started")
+        XCTAssertEqual(clicks, 1)
+    }
+
     func testDragPostsDownDraggedUpAndNeverLeavesButtonHeld() {
         dragStart()
         XCTAssertTrue(poster.buttonHeld)

@@ -4,6 +4,19 @@ import CoreGraphics
 import ServiceManagement
 import LazyClickCore
 
+/// Click feedback using the sounds macOS ships in /System/Library/Sounds.
+enum ClickSound {
+    static let names = ["None", "Tink", "Pop", "Morse", "Purr", "Bottle", "Frog"]
+
+    /// Main thread only. "None" has no matching sound, so it stays silent.
+    static func play() {
+        guard let sound = NSSound(named: Preferences.string(Preferences.Key.clickSound)) else { return }
+        sound.stop() // play() is ignored while already playing, which would mute fast double taps
+        sound.volume = Float(Preferences.double(Preferences.Key.clickVolume))
+        sound.play()
+    }
+}
+
 enum Permission {
     static var isTrusted: Bool { AXIsProcessTrusted() }
 

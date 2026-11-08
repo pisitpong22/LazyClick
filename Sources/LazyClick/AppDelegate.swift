@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.refreshStatusIcon()
             }
         }
+        controller.onClick = { DispatchQueue.main.async { ClickSound.play() } }
 
         MultitouchAdapter.frameHandler = { [controller] base, count, ts in
             controller.handleRawFrame(base, count: count, timestamp: ts)
