@@ -49,14 +49,15 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         for (i, p) in pages.enumerated() { p.isHidden = i != page }
         backButton.isHidden = page == 0
         notNowButton.isHidden = !onPermissionPage || trusted
-        primaryButton.title = !onPermissionPage ? "Continue" : trusted ? "Get Started" : "Allow Access…"
+        primaryButton.title = !onPermissionPage ? "Continue" : trusted ? "Get Started" : askedSystem ? "Open System Settings…" : "Continue…"
 
         let color: NSColor = trusted ? .systemGreen : .systemOrange
-        statusIcon.image = NSImage(systemSymbolName: trusted ? "checkmark.circle.fill" : "hand.point.right.fill", accessibilityDescription: nil)
+        statusIcon.image = NSImage(systemSymbolName: trusted ? "checkmark.circle.fill" : "info.circle.fill", accessibilityDescription: nil)
         statusIcon.contentTintColor = color
         statusLabel.stringValue = trusted
             ? "Access granted. You'll find LazyClick in the menu bar."
-            : "Click Allow Access → Open System Settings → switch on LazyClick."
+            : askedSystem ? "Click Open System Settings → switch on LazyClick."
+            : "Click Continue → Open System Settings → switch on LazyClick."
         statusBanner.layer?.backgroundColor = color.withAlphaComponent(0.18).cgColor
 
         // The user just came from System Settings: bring the last step back to the front.
@@ -80,6 +81,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         } else {
             askedSystem = true
             Permission.request()
+            reload()
         }
     }
 
@@ -158,6 +160,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private func buildIntroPage() {
         let icon = NSImageView()
         icon.image = NSApp.applicationIconImage
+        icon.setAccessibilityElement(false) // the name right below already says it
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.widthAnchor.constraint(equalToConstant: 112).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 112).isActive = true
@@ -168,7 +171,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         headline.font = .systemFont(ofSize: 40, weight: .bold)
         headline.alignment = .center
         headline.preferredMaxLayoutWidth = Self.contentWidth
-        let line = NSTextField(labelWithString: "No pressing. Just tap.")
+        let line = NSTextField(labelWithString: "Tap your Magic Mouse to click.")
         line.font = .systemFont(ofSize: 17)
         line.textColor = .secondaryLabelColor
 
@@ -185,22 +188,26 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
         let columnText: CGFloat = (Self.contentWidth - 24) / 2 - 40
         let cells = [
-            [featureRow("computermouse", "Mouse Mode", "Tap the left or right half to click. Tap, touch again and move to drag.", columnText, demo: .tapDrag),
-             featureRow("hand.point.up.left", "Trackpad Mode", "Tap with 1, 2 or 3 fingers to click. Rest three fingers and move to drag.", columnText, demo: .twoTap)],
-            [featureRow("speaker.wave.2", "Click Sound", "Hear a click with every tap. Pick a sound and volume, or turn it off.", columnText),
-             featureRow("arrow.left.arrow.right", "Swipe to navigate", "Flick sideways to go back or forward.", columnText)],
-            [featureRow("arrow.left.and.right.righttriangle.left.righttriangle.right", "Swap left and right", "Made for left-handed use.", columnText, demo: .swapSides),
-             featureRow("battery.75", "Mouse battery", "See the charge in the menu bar.", columnText)],
+            [featureRow("computermouse", "Mouse Style", "Tap the left or right half to click. Tap, touch again and move to drag.", columnText, demo: .tapDrag),
+             featureRow("hand.point.up.left", "Trackpad Style", "Tap with 1, 2 or 3 fingers to click. Rest three fingers and move to drag.", columnText, demo: .twoTap)],
+            [featureRow("speaker.wave.2", "Click Sound", "Hear a click with every tap. Change the sound or volume in Settings.", columnText, demo: .clickSound),
+             featureRow("arrow.left.arrow.right", "Swipe to Navigate", "Flick sideways to go back or forward.", columnText, demo: .swipe)],
         ]
         let grid = NSGridView(views: cells)
         grid.rowSpacing = 14
         grid.columnSpacing = 24
 
+        let hint = NSTextField(labelWithString: "Hover over a feature to preview it.")
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .secondaryLabelColor
+
         featuresPage.setViews([
-            makeHeader(image: nil, title: "Mouse Mode or Trackpad Mode", subtitle: "Your choice. Switch anytime in Settings."),
+            makeHeader(image: nil, title: "Mouse Style or Trackpad Style", subtitle: "Starts in Mouse Style. Switch anytime in Settings."),
             demo,
+            hint,
             grid,
         ], in: .top)
+        featuresPage.setCustomSpacing(6, after: demo)
     }
 
     private func buildPermissionPage() {
@@ -209,14 +216,15 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         let text = Self.contentWidth - 40
 
         let reasons = NSStackView(views: [
-            featureRow("cursorarrow.click.2", "What it's for", "macOS requires Accessibility access before an app can turn your taps into clicks and drags.", text),
-            featureRow("eye.slash", "What it doesn't do", "LazyClick doesn't read your screen or keystrokes, and it never connects to the internet.", text),
-            featureRow("switch.2", "You stay in control", "Turn it off anytime in System Settings › Privacy & Security › Accessibility.", text),
+            featureRow("cursorarrow.click.2", "What it's for", "macOS requires Accessibility access before an app can turn your taps into clicks and drags.", text, detailColor: .labelColor),
+            featureRow("eye.slash", "What it doesn't do", "LazyClick doesn't read your screen or keystrokes, and it never connects to the internet.", text, detailColor: .labelColor),
+            featureRow("switch.2", "You stay in control", "Turn it off anytime in System Settings › Privacy & Security › Accessibility.", text, detailColor: .labelColor),
         ])
         reasons.orientation = .vertical
         reasons.alignment = .leading
         reasons.spacing = 14
 
+        statusIcon.setAccessibilityElement(false) // the label beside it states the status
         statusIcon.setContentHuggingPriority(.required, for: .horizontal)
         statusLabel.font = .systemFont(ofSize: 12)
         statusLabel.preferredMaxLayoutWidth = Self.contentWidth - 60
@@ -239,6 +247,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private func makeHeader(image: NSImage?, title: String, subtitle: String) -> NSView {
         let icon = NSImageView()
         icon.image = image
+        icon.setAccessibilityElement(false)
         icon.isHidden = image == nil
         icon.contentTintColor = .controlAccentColor
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -269,10 +278,12 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Hovering a row that has a `demo` plays it in the preview above.
-    private func featureRow(_ symbolName: String, _ title: String, _ detail: String, _ textWidth: CGFloat, demo kind: DemoKind? = nil) -> NSView {
+    private func featureRow(_ symbolName: String, _ title: String, _ detail: String, _ textWidth: CGFloat,
+                            detailColor: NSColor = .secondaryLabelColor, demo kind: DemoKind? = nil) -> NSView {
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 20, weight: .regular))
+        icon.setAccessibilityElement(false)
         icon.contentTintColor = .controlAccentColor
         icon.imageAlignment = .alignCenter
         icon.widthAnchor.constraint(equalToConstant: 30).isActive = true
@@ -281,7 +292,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         t.font = .systemFont(ofSize: 13, weight: .semibold)
         let d = NSTextField(wrappingLabelWithString: detail)
         d.font = .systemFont(ofSize: 12)
-        d.textColor = .secondaryLabelColor
+        d.textColor = detailColor
         d.preferredMaxLayoutWidth = textWidth
         d.widthAnchor.constraint(equalToConstant: textWidth).isActive = true
         let labels = NSStackView(views: [t, d])
@@ -295,7 +306,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         row.spacing = 10
         if let kind {
             row.onHover = { [weak self] in
-                if self?.demo.kind != kind { self?.demo.show(kind) }
+                guard let self else { return }
+                if kind == .clickSound {
+                    demo.show(kind) // restart, so the tap lines up with the sound
+                    if window?.isKeyWindow == true { ClickSound.play() } // tracking is active even behind other windows
+                } else if demo.kind != kind {
+                    demo.show(kind)
+                }
             }
         }
         return row

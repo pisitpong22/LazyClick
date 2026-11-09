@@ -252,11 +252,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settings?.present()
     }
 
-    /// Ends on Settings, so a user who skips the permission still sees the banner explaining it.
+    /// A user who skips the permission ends on Settings, where the banner explains it.
     private func openOnboarding() {
         onboarding = OnboardingWindowController(onClose: { [weak self] in
             self?.onboarding = nil
-            self?.openSettings()
+            if !Permission.isTrusted { self?.openSettings() }
         })
         onboarding?.present()
     }
