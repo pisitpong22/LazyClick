@@ -5,6 +5,7 @@ import QuartzCore
 enum DemoKind: CaseIterable {
     case oneTap, twoTap, threeTap, threeDrag      // Trackpad style
     case sideLeft, sideRight, tapDrag, swapSides  // Mouse style
+    case swipe, clickSound                        // both styles
 
     static let trackpad: [DemoKind] = [.oneTap, .twoTap, .threeTap, .threeDrag]
     static let mouse: [DemoKind] = [.sideLeft, .sideRight, .tapDrag, .swapSides]
@@ -16,6 +17,8 @@ enum DemoKind: CaseIterable {
         case .twoTap, .sideRight, .swapSides: return 0.18
         case .threeDrag: return 0.5
         case .tapDrag: return 0.57
+        case .swipe: return 0.27
+        case .clickSound: return 0.06
         }
     }
 
@@ -29,6 +32,8 @@ enum DemoKind: CaseIterable {
         case .sideRight: return ("Right click", "Tap the right half of the mouse.")
         case .tapDrag: return ("Drag and drop", "Tap, then touch again and move the mouse. Lift your finger to drop.")
         case .swapSides: return ("Swap left and right", "The halves are mirrored: tapping the left half now right-clicks.")
+        case .swipe: return ("Swipe to navigate", "Flick left to right to go back, right to left to go forward.")
+        case .clickSound: return ("Click sound", "Plays with every tap. Change the sound or volume in Settings.")
         }
     }
 }
@@ -84,6 +89,9 @@ final class GestureDemoView: NSView {
 
     func show(_ kind: DemoKind) {
         self.kind = kind
+        setAccessibilityElement(true)
+        setAccessibilityRole(.image)
+        setAccessibilityLabel("\(kind.caption.title). \(kind.caption.detail)")
         if let f = ProcessInfo.processInfo.environment["LAZYCLICK_DEMO_FREEZE"], let frac = Double(f) {
             frozenAt = frac // developer hook for deterministic screenshots
         } else if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
@@ -179,18 +187,6 @@ final class GestureDemoView: NSView {
         body.lineWidth = 1.9
         m.addSublayer(body)
 
-        // Apple logo (U+F8FF) near the tail, like the illustration in System Settings
-        let logo = CATextLayer()
-        logo.string = "\u{F8FF}"
-        logo.font = NSFont.systemFont(ofSize: 16)
-        logo.fontSize = 15
-        logo.alignmentMode = .center
-        logo.foregroundColor = color(ink, 0.92)
-        logo.contentsScale = 3
-        logo.bounds = CGRect(x: 0, y: 0, width: 24, height: 20)
-        logo.position = CGPoint(x: mouseSize.width / 2, y: 26)
-        m.addSublayer(logo)
-
         if let tint {
             let t = CAShapeLayer()
             t.path = bodyPath
@@ -234,8 +230,9 @@ final class GestureDemoView: NSView {
         return p
     }
 
-    private func addFingers(to mouse: CALayer, at points: [CGPoint], windows: [(Double, Double)]) {
-        for p in points {
+    @discardableResult
+    private func addFingers(to mouse: CALayer, at points: [CGPoint], windows: [(Double, Double)]) -> [CAShapeLayer] {
+        points.map { p in
             let f = CAShapeLayer()
             f.bounds = CGRect(x: 0, y: 0, width: 16, height: 16)
             f.position = p
@@ -245,6 +242,7 @@ final class GestureDemoView: NSView {
             f.lineWidth = 1.5
             mouse.addSublayer(f)
             appear(f, windows)
+            return f
         }
     }
 
@@ -412,7 +410,84 @@ final class GestureDemoView: NSView {
             let down = 0.20, a = down + 0.1 / loop
             buildDrag(fingerSets: [[CGPoint(x: 13, y: 84)], [CGPoint(x: 13, y: 84)]],
                       windows: [[(0.07, 0.12)], [(down, 0.88)]], moveFrom: a, moveTo: a + 0.3, firstTapRipple: 0.08)
+        case .swipe: buildSwipe()
+        case .clickSound: buildClickSound()
         }
+    }
+
+    /// The previous page slides in on the back flick and away again on the forward flick.
+    private func buildSwipe() {
+        let mouse = makeMouse()
+        let left = pt(12, 84), right = pt(44, 84)
+        let finger = addFingers(to: mouse, at: [CGPoint(x: 12, y: 84)], windows: [(0.12, 0.28), (0.56, 0.72)])[0]
+        track(finger, "position", [(0, left), (0.13, left), (0.28, right), (0.57, right), (0.72, left)])
+
+        // clipped to the little browser window, below its address bar
+        let viewport = CALayer()
+        viewport.frame = CGRect(x: screenRect.minX + 14, y: 34, width: 252, height: 112)
+        viewport.cornerRadius = 9
+        viewport.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        viewport.masksToBounds = true
+        stage.addSublayer(viewport)
+
+        let page = CALayer()
+        page.bounds = viewport.bounds
+        page.backgroundColor = fixed(0.16, 0.42, 0.50)
+        viewport.addSublayer(page)
+        for (r, alpha) in [(CGRect(x: 14, y: 42, width: 224, height: 58), 0.22),
+                           (CGRect(x: 14, y: 28, width: 150, height: 5), 0.8),
+                           (CGRect(x: 14, y: 16, width: 196, height: 4), 0.5)] {
+            let bar = CALayer()
+            bar.frame = r
+            bar.cornerRadius = min(r.height / 2, 6)
+            bar.backgroundColor = fixed(1, 1, 1, alpha)
+            page.addSublayer(bar)
+        }
+        let y = viewport.bounds.midY, on = pt(viewport.bounds.midX, y), off = pt(-viewport.bounds.midX, y)
+        track(page, "position", [(0, off), (0.18, off), (0.34, on), (0.62, on), (0.78, off)])
+
+        for (back, window) in [(true, (0.18, 0.34)), (false, (0.62, 0.78))] {
+            let badge = CAShapeLayer()
+            badge.bounds = CGRect(x: 0, y: 0, width: 44, height: 44)
+            badge.position = screenCenter
+            badge.path = CGPath(ellipseIn: badge.bounds, transform: nil)
+            badge.fillColor = CGColor(gray: 0, alpha: 0.5)
+            let chevron = CAShapeLayer()
+            let (tip, tail): (CGFloat, CGFloat) = back ? (16, 26) : (28, 18)
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: tail, y: 32))
+            p.addLine(to: CGPoint(x: tip, y: 22))
+            p.addLine(to: CGPoint(x: tail, y: 12))
+            chevron.path = p
+            chevron.fillColor = nil
+            chevron.strokeColor = CGColor(gray: 1, alpha: 1)
+            chevron.lineWidth = 3.5
+            chevron.lineCap = .round
+            chevron.lineJoin = .round
+            badge.addSublayer(chevron)
+            stage.addSublayer(badge)
+            appear(badge, [window])
+        }
+    }
+
+    /// The tap comes first in the loop so it lines up with the sound played on hover.
+    private func buildClickSound() {
+        let mouse = makeMouse()
+        addFingers(to: mouse, at: [CGPoint(x: 13, y: 84)], windows: [(0.02, 0.09)])
+
+        let badgeRect = CGRect(x: screenCenter.x - 24, y: screenCenter.y - 24, width: 48, height: 48)
+        pill(badgeRect, 24, fill: CGColor(gray: 0, alpha: 0.5))
+        let icon = CALayer()
+        icon.bounds = CGRect(x: 0, y: 0, width: 30, height: 30)
+        icon.position = screenCenter
+        icon.contentsGravity = .resizeAspect
+        icon.contents = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 26, weight: .regular)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [.white])))
+        stage.addSublayer(icon)
+        track(icon, "transform.scale", [(0, num(1)), (0.03, num(1)), (0.06, num(1.2)), (0.16, num(1))])
+        ripple(at: screenCenter, start: 0.04)
+        ripple(at: screenCenter, start: 0.1)
     }
 
     private func buildLeftClick(halves: Bool) {

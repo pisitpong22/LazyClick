@@ -4,6 +4,32 @@ import CoreGraphics
 import ServiceManagement
 import LazyClickCore
 
+/// Click feedback: synthesized mouse clicks, plus the sounds macOS ships in /System/Library/Sounds.
+enum ClickSound {
+    private static let synthesized = ClickSynth.voices.reduce(into: [String: NSSound]()) {
+        $0[$1.name] = NSSound(data: ClickSynth.wav($1))
+    }
+    /// "Magic Mouse" is Contents/Resources/Magic Mouse.wav, which `NSSound(named:)` finds by file name.
+    static let names = ["None", "Magic Mouse"] + ClickSynth.voices.map(\.name) + ["Tink", "Pop", "Morse", "Purr", "Bottle", "Frog"]
+
+    static var isOn: Bool { Preferences.clickSound != "None" }
+
+    /// Main thread only. Plays the restored sound as confirmation when turning on.
+    static func toggle() {
+        Preferences.clickSound = isOn ? "None" : Preferences.string(Preferences.Key.lastClickSound)
+        play()
+    }
+
+    /// Main thread only. "None" has no matching sound, so it stays silent.
+    static func play() {
+        let name = Preferences.clickSound
+        guard let sound = synthesized[name] ?? NSSound(named: name) else { return }
+        sound.stop() // play() is ignored while already playing, which would mute fast double taps
+        sound.volume = Float(Preferences.double(Preferences.Key.clickVolume))
+        sound.play()
+    }
+}
+
 enum Permission {
     static var isTrusted: Bool { AXIsProcessTrusted() }
 
@@ -65,6 +91,14 @@ enum CursorState {
         return CGEventSource.buttonState(s, button: .left)
             || CGEventSource.buttonState(s, button: .right)
             || CGEventSource.buttonState(s, button: .center)
+    }
+
+    static func regionSelecting() -> Bool {
+        GestureEngine.regionSelecting(windows: CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? [])
+    }
+
+    static func overScreenshotThumbnail(_ point: CGPoint) -> Bool {
+        GestureEngine.overScreenshotThumbnail(point, windows: CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? [])
     }
 }
 

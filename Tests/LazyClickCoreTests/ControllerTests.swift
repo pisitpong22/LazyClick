@@ -14,6 +14,7 @@ final class MockPoster: EventPosting {
         events.append(Event(kind: kind, button: button, clickCount: clickCount, at: at))
     }
     func postMagnify(_ amount: Double, phase: MagnifyPhase) {}
+    func postNavigate(back: Bool) {}
     var downs: Int { events.filter { $0.kind == .down }.count }
     var ups: Int { events.filter { $0.kind == .up }.count }
     var buttonHeld: Bool { downs != ups }
@@ -61,6 +62,31 @@ final class ControllerTests: XCTestCase {
         frame(0.011, three)
     }
 
+    func testRegionQueryRunsOncePerMouseStyleTouchAndNeverForEdgeGrip() {
+        var queries = 0
+        var config = GestureConfig()
+        config.style = .mouse
+        let c = GestureController(poster: poster, timer: timer, config: config,
+                                  cursorProvider: { .zero }, physicalButtonProvider: { false },
+                                  regionSelectingProvider: { queries += 1; return false })
+        c.setEnabled(true)
+        for i in 0..<5 { c.handleFrame(timestamp: Double(i) * 0.01, contacts: [f(1, 0.01, 0.5)]) }
+        c.handleFrame(timestamp: 0.1, contacts: [])
+        XCTAssertEqual(queries, 0, "a finger resting on the edge is not a touch")
+        for i in 0..<5 { c.handleFrame(timestamp: 0.5 + Double(i) * 0.01, contacts: [f(1, 0.3, 0.5)]) }
+        XCTAssertEqual(queries, 1)
+    }
+
+    func testRegionQueryIsSkippedInTrackpadStyle() {
+        var queries = 0
+        let c = GestureController(poster: poster, timer: timer, config: GestureConfig(),
+                                  cursorProvider: { .zero }, physicalButtonProvider: { false },
+                                  regionSelectingProvider: { queries += 1; return false })
+        c.setEnabled(true)
+        c.handleFrame(timestamp: 0, contacts: [f(1, 0.3, 0.5)])
+        XCTAssertEqual(queries, 0)
+    }
+
     func testOneTapPostsDownUpPairWithClickState() {
         frame(0, one); frame(0.05, [])
         XCTAssertEqual(poster.events.map(\.kind), [.down, .up])
@@ -73,6 +99,16 @@ final class ControllerTests: XCTestCase {
         frame(0.3, three); frame(0.05, [])
         XCTAssertEqual(poster.events.map(\.button), [.right, .right, .middle, .middle])
         XCTAssertFalse(poster.buttonHeld)
+    }
+
+    func testOnClickFiresForTapsButNotDrags() {
+        var clicks = 0
+        controller.onClick = { clicks += 1 }
+        frame(0, one); frame(0.05, [])
+        XCTAssertEqual(clicks, 1)
+        frame(0.5, []); dragStart(); frame(0.01, [])
+        XCTAssertEqual(poster.downs, 2, "the drag really started")
+        XCTAssertEqual(clicks, 1)
     }
 
     func testDragPostsDownDraggedUpAndNeverLeavesButtonHeld() {

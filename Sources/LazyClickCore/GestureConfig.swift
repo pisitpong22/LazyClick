@@ -26,6 +26,7 @@ public struct GestureConfig: Equatable, Sendable {
     public var twoFingerTapEnabled = true
     public var threeFingerTapEnabled = true
     public var threeFingerDragEnabled = true
+    public var swipeNavigationEnabled = true
 
     // Advanced settings (Settings panel)
     /// 0 = strict (short, tiny movement), 1 = relaxed (longer, more movement tolerated).
@@ -55,6 +56,10 @@ public struct GestureConfig: Equatable, Sendable {
     public var edgeInset: Float = 0.03
     /// Normalized x that separates the left half from the right half in mouse style.
     public var sideSplit: Float = 0.5
+    /// Normalized sideways finger travel that counts as a back/forward swipe.
+    public var swipeDistance: Float = 0.25
+    /// A swipe must complete this soon after touchdown; slower slides are horizontal scrolling.
+    public var swipeMaxDuration: Double = 0.35
 
     public init() {}
 

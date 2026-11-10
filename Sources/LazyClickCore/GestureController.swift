@@ -25,17 +25,24 @@ public final class GestureController {
     /// Called (from the touch thread) once if the private ABI looks wrong and handling was disabled.
     public var onABIFault: (() -> Void)?
 
+    /// Called (from the touch thread, holding the lock) for each synthetic click. Must return immediately.
+    public var onClick: (() -> Void)?
+
     public init(poster: EventPosting,
                 timer: DragLockTimer,
                 config: GestureConfig = GestureConfig(),
                 cursorProvider: @escaping () -> CGPoint,
-                physicalButtonProvider: @escaping () -> Bool) {
+                physicalButtonProvider: @escaping () -> Bool,
+                regionSelectingProvider: @escaping () -> Bool = { false },
+                screenshotThumbnailProvider: @escaping (CGPoint) -> Bool = { _ in false }) {
         self.engine = GestureEngine(config: config)
         self.mouse = SyntheticMouse(poster: poster)
         self.timer = timer
         self.cursorProvider = cursorProvider
         self.physicalButtonProvider = physicalButtonProvider
         scratch.reserveCapacity(MTLayout.maxPlausibleContacts)
+        engine.isRegionSelecting = regionSelectingProvider
+        engine.isOverScreenshotThumbnail = screenshotThumbnailProvider
         engine.onAction = { [unowned self] action in self.perform(action) }
     }
 
@@ -128,6 +135,7 @@ public final class GestureController {
             timer.cancel()
         default:
             mouse.apply(action)
+            if case .click = action { onClick?() }
         }
     }
 

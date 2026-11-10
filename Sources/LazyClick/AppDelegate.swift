@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let controller: GestureController
     private var statusItem: NSStatusItem!
     private var settings: SettingsWindowController?
+    private var onboarding: OnboardingWindowController?
     private var permissionObserver: NSObjectProtocol?
     private var signalSources: [DispatchSourceSignal] = []
 
@@ -14,13 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var batteryTimer: Timer?
     private var abiFault = false
 
-    // Menu items updated in menuWillOpen
-    private let enabledItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "")
-    private let deviceItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let permissionItem = NSMenuItem(title: "Grant Accessibility Access…", action: #selector(grantPermission), keyEquivalent: "")
-    private let styleTrackpadItem = NSMenuItem(title: "Trackpad style", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let styleMouseItem = NSMenuItem(title: "Mouse style", action: #selector(selectStyle(_:)), keyEquivalent: "")
-    private let loginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+    private let statusLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let enabledItem = NSMenuItem(title: "Enabled", action: #selector(AppDelegate.toggleEnabled), keyEquivalent: "")
+    private let trackpadItem = NSMenuItem(title: "Trackpad Style", action: #selector(AppDelegate.selectStyle(_:)), keyEquivalent: "")
+    private let mouseItem = NSMenuItem(title: "Mouse Style", action: #selector(AppDelegate.selectStyle(_:)), keyEquivalent: "")
+    private let soundItem = NSMenuItem(title: "Click Sound", action: #selector(AppDelegate.toggleClickSound), keyEquivalent: "")
+    private let permissionItem = NSMenuItem(title: "Grant Accessibility Access…", action: #selector(AppDelegate.grantPermission), keyEquivalent: "")
 
     override init() {
         controller = GestureController(
@@ -28,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             timer: OneShotTimer(),
             config: GestureConfig(),
             cursorProvider: CursorState.location,
-            physicalButtonProvider: CursorState.physicalButtonDown
+            physicalButtonProvider: CursorState.physicalButtonDown,
+            regionSelectingProvider: CursorState.regionSelecting,
+            screenshotThumbnailProvider: CursorState.overScreenshotThumbnail
         )
         super.init()
     }
@@ -44,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.refreshStatusIcon()
             }
         }
+        controller.onClick = { DispatchQueue.main.async { ClickSound.play() } }
 
         MultitouchAdapter.frameHandler = { [controller] base, count, ts in
             controller.handleRawFrame(base, count: count, timestamp: ts)
@@ -57,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.refreshStatusIcon()
         }
 
+        buildMainMenu()
         buildStatusItem()
         refreshBattery()
         // The battery level changes slowly; one cheap check every 5 minutes is plenty.
@@ -69,15 +73,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if !Permission.isTrusted && !Preferences.bool(Preferences.Key.didPromptAccessibility) {
             Preferences.set(true, for: Preferences.Key.didPromptAccessibility)
-            Permission.request()
-            openSettings() // first launch: show something so the user knows the app is running
+            openOnboarding()
         }
         applyState()
     }
 
     /// Opening the app again (Finder/Launchpad) shows Settings, so a menu bar icon hidden by a crowded bar or the notch is never a dead end.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        openSettings()
+        if let onboarding { onboarding.present() } else { openSettings() }
         return true
     }
 
@@ -104,42 +107,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             deviceCount = 0
         }
         settings?.reload() // updates the permission banner
+        onboarding?.reload()
         refreshStatusIcon()
     }
 
-    // MARK: - Status item & menu
+    // MARK: - Menus
+
+    /// Never visible in an accessory app, but its key equivalents are what make ⌘, ⌘Q and ⌘W work in our windows.
+    private func buildMainMenu() {
+        let app = NSMenu()
+        app.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        app.addItem(.separator())
+        app.addItem(withTitle: "Quit LazyClick", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let file = NSMenu(title: "File")
+        file.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let main = NSMenu()
+        for submenu in [app, file] {
+            let item = NSMenuItem()
+            item.submenu = submenu
+            main.addItem(item)
+        }
+        NSApp.mainMenu = main
+    }
 
     private func buildStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        trackpadItem.tag = GestureStyle.trackpad.rawValue
+        mouseItem.tag = GestureStyle.mouse.rawValue
+        statusLine.isEnabled = false
         let menu = NSMenu()
+        menu.autoenablesItems = false // the status line and style items are enabled by hand
         menu.delegate = self
-        menu.autoenablesItems = false
-
-        for item in [enabledItem, permissionItem, loginItem, styleTrackpadItem, styleMouseItem] { item.target = self }
-        styleTrackpadItem.tag = 0; styleMouseItem.tag = 1
-        enabledItem.image = symbol("power")
-        deviceItem.isEnabled = false
-        permissionItem.image = symbol("lock.shield")
-        styleTrackpadItem.image = symbol("hand.point.up.left")
-        styleMouseItem.image = symbol("computermouse")
-
-        menu.addItem(enabledItem)
-        menu.addItem(deviceItem)
-        menu.addItem(permissionItem)
-        menu.addItem(.separator())
-        menu.addItem(styleTrackpadItem)
-        menu.addItem(styleMouseItem)
-        menu.addItem(.separator())
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
-        menu.addItem(loginItem)
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit LazyClick", action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-
+        for item in [statusLine, .separator(), enabledItem, .separator(), trackpadItem, mouseItem, soundItem, .separator(), permissionItem] {
+            menu.addItem(item)
+        }
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        menu.addItem(withTitle: "Quit LazyClick", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
+        refreshStatusIcon()
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        refreshBattery()
+        let on = Preferences.bool(Preferences.Key.enabled)
+        enabledItem.state = on ? .on : .off
+        trackpadItem.state = Preferences.style == .trackpad ? .on : .off
+        mouseItem.state = Preferences.style == .mouse ? .on : .off
+        trackpadItem.isEnabled = on
+        mouseItem.isEnabled = on
+        soundItem.state = ClickSound.isOn ? .on : .off
+        permissionItem.isHidden = Permission.isTrusted
         refreshStatusIcon()
     }
 
@@ -154,7 +171,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         img?.isTemplate = true
         button.image = img
         button.appearsDisabled = !isActive // dim when not handling gestures
-        button.toolTip = statusText + (batteryPercent.map { " · Battery \($0)%" } ?? "")
+        let status = statusText + (batteryPercent.map { " · Battery \($0)%" } ?? "")
+        statusLine.title = status
+        button.setAccessibilityValue(status)
+        button.toolTip = status
+        if case let .unavailable(why) = adapter.availability { button.toolTip = "\(status) (\(why))" } // the technical reason, for bug reports
     }
 
     private func refreshBattery() {
@@ -170,54 +191,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var statusText: String {
-        if abiFault { return "Touch API returned unexpected data — gestures stopped" }
-        if case let .unavailable(why) = adapter.availability { return "Touch API unavailable: \(why)" }
+        if abiFault { return "Gestures stopped. Turn LazyClick off and on to retry." }
+        if case .unavailable = adapter.availability { return "Gestures aren't available on this version of macOS" }
         if !Permission.isTrusted { return "Accessibility permission needed" }
         if !Preferences.bool(Preferences.Key.enabled) { return "Disabled" }
         return deviceCount > 0 ? "Magic Mouse connected" : "Magic Mouse disconnected"
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
-        let on = Preferences.bool(Preferences.Key.enabled)
-        enabledItem.state = on ? .on : .off
-        enabledItem.isEnabled = true
-
-        let connected = deviceCount > 0 && on && Permission.isTrusted
-        var title = connected ? "Magic Mouse: Connected" : "Magic Mouse: Disconnected"
-        if connected, let pct = batteryPercent { title += " · \(pct)%" }
-        var icon = connected ? "checkmark.circle.fill" : "xmark.circle"
-        if !Permission.isTrusted && on { title = "Needs Accessibility permission"; icon = "lock.shield" }
-        if case .unavailable = adapter.availability { title = "Touch API unavailable"; icon = "exclamationmark.triangle" }
-        if abiFault { title = "Touch data unexpected — stopped"; icon = "exclamationmark.triangle" }
-        deviceItem.title = title
-        deviceItem.image = symbol(icon)
-        refreshBattery()
-
-        permissionItem.isHidden = Permission.isTrusted
-        let mouse = Preferences.style == .mouse
-        styleTrackpadItem.state = mouse ? .off : .on
-        styleMouseItem.state = mouse ? .on : .off
-        styleTrackpadItem.isEnabled = on
-        styleMouseItem.isEnabled = on
-        loginItem.state = LaunchAtLogin.isEnabled ? .on : .off
-    }
-
     // MARK: - Actions
 
-    @objc private func toggleEnabled() {
+    @objc func toggleEnabled() {
         Preferences.set(!Preferences.bool(Preferences.Key.enabled), for: Preferences.Key.enabled)
+        enabledChanged()
+    }
+
+    private func enabledChanged() {
         if Preferences.bool(Preferences.Key.enabled) && !Permission.isTrusted { showPermissionAlert() }
         abiFault = false
         applyState()
     }
 
-    @objc private func selectStyle(_ sender: NSMenuItem) {
+    @objc func selectStyle(_ sender: NSMenuItem) {
         Preferences.style = GestureStyle(rawValue: sender.tag) ?? .trackpad
         controller.updateConfig(Preferences.gestureConfig())
         settings?.reload()
     }
 
-    @objc private func toggleLaunchAtLogin() {
+    @objc func toggleClickSound() {
+        ClickSound.toggle()
+        settings?.reload()
+    }
+
+    private func toggleLaunchAtLogin() {
         let target = !LaunchAtLogin.isEnabled
         if let err = LaunchAtLogin.set(target) {
             let a = NSAlert()
@@ -231,20 +236,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func grantPermission() { showPermissionAlert() }
+    @objc func grantPermission() { showPermissionAlert() }
 
-    @objc private func openSettings() {
+    @objc func openSettings() {
         if settings == nil {
             settings = SettingsWindowController(onChange: { [weak self] in
                 self?.controller.updateConfig(Preferences.gestureConfig())
             }, onClose: { [weak self] in
                 self?.settings = nil // free the window when closed
+            }, onEnabledChange: { [weak self] in
+                self?.enabledChanged()
+            }, onLaunchAtLogin: { [weak self] in
+                self?.toggleLaunchAtLogin()
             })
         }
         settings?.present()
     }
 
-    @objc private func quit() { NSApp.terminate(nil) }
+    /// A user who skips the permission ends on Settings, where the banner explains it.
+    private func openOnboarding() {
+        onboarding = OnboardingWindowController(onClose: { [weak self] in
+            self?.onboarding = nil
+            if !Permission.isTrusted { self?.openSettings() }
+        })
+        onboarding?.present()
+    }
 
     private func showPermissionAlert() {
         Permission.request() // the system prompt already offers "Open System Settings"; a second dialog is redundant

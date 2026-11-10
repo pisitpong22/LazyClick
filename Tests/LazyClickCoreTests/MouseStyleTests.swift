@@ -166,6 +166,140 @@ final class MouseStyleTests: XCTestCase {
         XCTAssertEqual(r.begins, 0)
     }
 
+    func testRegionSelectDetectionFromObservedWindowLists() {
+        func w(_ owner: String, _ layer: Int) -> [String: Any] {
+            [kCGWindowOwnerName as String: owner, kCGWindowLayer as String: layer]
+        }
+        let idleOverlay = w("Screenshot", 24)
+        XCTAssertFalse(GestureEngine.regionSelecting(windows: [idleOverlay, w("Finder", 0)]), "no capture running")
+        XCTAssertTrue(GestureEngine.regionSelecting(windows: [idleOverlay, w("screencapture", 1498)]), "crosshair")
+        XCTAssertTrue(GestureEngine.regionSelecting(windows: [w("screencapture", 1498)]))
+        XCTAssertFalse(GestureEngine.regionSelecting(windows: [idleOverlay, w("Screenshot", 1499), w("screencapture", 1498)]),
+                       "Cmd+Shift+5 toolbar")
+    }
+
+    func testRegionSelectTapsDoNotClick() {
+        let r = rig(); r.engine.isRegionSelecting = { true }
+        tap(r, leftFinger); tap(r, rightFinger)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testRegionSelectTouchAndMoveDragsWithoutPriorTap() {
+        let r = rig(); r.engine.isRegionSelecting = { true }
+        let start = r.cursor
+        r.frame(after: 0.3, leftFinger)
+        for _ in 0..<5 { r.cursor.x += 10; r.frame(after: 0.011, leftFinger) }
+        XCTAssertEqual(r.actions.first, .dragBegin(at: start))
+        XCTAssertEqual(r.ends, 0)
+        r.lift()
+        XCTAssertEqual(r.ends, 1)
+        XCTAssertTrue(r.clicks.isEmpty)
+    }
+
+    func testRegionSelectKeepsNormalTapsWhenTapDragIsOff() {
+        let r = rig { $0.tapDragEnabled = false }; r.engine.isRegionSelecting = { true }
+        tap(r, leftFinger)
+        XCTAssertEqual(r.clicks.count, 1)
+        r.frame(after: 0.1, leftFinger)
+        r.cursor.x += 30; r.frame(after: 0.05, leftFinger)
+        XCTAssertEqual(r.begins, 0)
+    }
+
+    func testThumbnailDetectionUsesTheBottomRightCornerOfTheOverlay() {
+        func w(_ owner: String, _ r: CGRect) -> [String: Any] {
+            [kCGWindowOwnerName as String: owner, kCGWindowBounds as String: r.dictionaryRepresentation as NSDictionary as! [String: Any]]
+        }
+        let screen = CGRect(x: 0, y: 0, width: 1800, height: 1169)
+        let onThumbnail = CGPoint(x: 1700, y: 1100) // observed thumbnail: x 1600-1788, y 1032-1157
+        XCTAssertTrue(GestureEngine.overScreenshotThumbnail(onThumbnail, windows: [w("Screenshot", screen)]))
+        XCTAssertFalse(GestureEngine.overScreenshotThumbnail(CGPoint(x: 500, y: 500), windows: [w("Screenshot", screen)]))
+        XCTAssertFalse(GestureEngine.overScreenshotThumbnail(onThumbnail, windows: [w("Finder", screen)]))
+        XCTAssertFalse(GestureEngine.overScreenshotThumbnail(CGPoint(x: 950, y: 1090), windows:
+            [w("Screenshot", CGRect(x: 600, y: 1040, width: 400, height: 60))]), "Cmd+Shift+5 toolbar")
+    }
+
+    func testThumbnailTouchAndMoveDragsWithoutPriorTap() {
+        let r = rig(); r.engine.isOverScreenshotThumbnail = { _ in true }
+        let start = r.cursor
+        r.frame(after: 0.3, leftFinger)
+        for _ in 0..<5 { r.cursor.x += 10; r.frame(after: 0.011, leftFinger) }
+        XCTAssertEqual(r.actions.first, .dragBegin(at: start))
+        r.lift()
+        XCTAssertEqual(r.ends, 1)
+        XCTAssertTrue(r.clicks.isEmpty)
+    }
+
+    func testThumbnailTapStillClicks() {
+        let r = rig(); r.engine.isOverScreenshotThumbnail = { _ in true }
+        tap(r, leftFinger)
+        XCTAssertEqual(r.actions, [.click(.left, clickCount: 1, at: r.cursor)])
+    }
+
+    func testThumbnailDragRespectsTapDragSwitch() {
+        let r = rig { $0.tapDragEnabled = false }; r.engine.isOverScreenshotThumbnail = { _ in true }
+        r.frame(after: 0.3, leftFinger)
+        r.cursor.x += 30; r.frame(after: 0.05, leftFinger)
+        XCTAssertEqual(r.begins, 0)
+    }
+
+    private func swipe(_ r: Rig, from x0: Float, to x1: Float, y1: Float = 0.5, step: Double = 0.05) {
+        r.frame(after: 0.5, [f(1, x0, 0.5)])
+        r.frame(after: step, [f(1, (x0 + x1) / 2, (0.5 + y1) / 2)])
+        r.frame(after: step, [f(1, x1, y1)])
+        r.lift()
+    }
+
+    func testSwipeLeftToRightGoesBackOnce() {
+        let r = rig(); swipe(r, from: 0.3, to: 0.7)
+        XCTAssertEqual(r.actions, [.navigate(back: true)])
+    }
+
+    func testSwipeRightToLeftGoesForward() {
+        let r = rig(); swipe(r, from: 0.7, to: 0.3)
+        XCTAssertEqual(r.actions, [.navigate(back: false)])
+    }
+
+    func testSwipeWorksInTrackpadStyle() {
+        let r = Rig(); swipe(r, from: 0.3, to: 0.7)
+        XCTAssertEqual(r.actions, [.navigate(back: true)])
+    }
+
+    func testSlowSideSlideIsScrollNotSwipe() {
+        let r = rig(); swipe(r, from: 0.3, to: 0.7, step: 0.3)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testVerticalSlideIsNotSwipe() {
+        let r = rig(); swipe(r, from: 0.3, to: 0.6, y1: 0.9)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testShortFlickIsNotSwipe() {
+        let r = rig(); swipe(r, from: 0.4, to: 0.55)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testFingerRollWhileMovingMouseIsNotSwipe() {
+        let r = rig()
+        r.frame(after: 0.5, [f(1, 0.3, 0.5)])
+        r.cursor.x += 20; r.frame(after: 0.05, [f(1, 0.7, 0.5)])
+        r.lift()
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testTwoFingerSlideIsNotSwipe() {
+        let r = rig()
+        r.frame(after: 0.5, [f(1, 0.3, 0.3), f(2, 0.3, 0.7)])
+        r.frame(after: 0.05, [f(1, 0.7, 0.3), f(2, 0.7, 0.7)])
+        r.lift()
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
+    func testSwipeCanBeDisabled() {
+        let r = rig { $0.swipeNavigationEnabled = false }; swipe(r, from: 0.3, to: 0.7)
+        XCTAssertTrue(r.actions.isEmpty)
+    }
+
     func testTrackpadStyleUnchangedByDefault() {
         XCTAssertEqual(GestureConfig().style, .trackpad)
     }

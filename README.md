@@ -37,6 +37,7 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 | **Middle click** | — | 3-finger tap |
 | **Double-click** | 2 quick taps on the left half | 2 quick 1-finger taps |
 | **Drag** | Tap once, touch again and **move the mouse** while holding | 3 fingers down + move the mouse |
+| **Back / Forward** | Flick one finger **left→right** / **right→left** (⌘[ / ⌘]) | Same |
 
 > 💡 **Tips**
 > - Tap lightly and lift quickly (under ~0.3 s) without sliding — a sliding finger is a scroll.
@@ -59,12 +60,13 @@ brew install --cask pisitpong22/tap/lazyclick
 ```
 
 **Or download:** get `LazyClick.zip` from [Releases](https://github.com/pisitpong22/LazyClick/releases/latest), unzip, and drag `LazyClick.app` to Applications.
-The app is not notarized yet, so on first launch right-click → **Open** (or run `xattr -dr com.apple.quarantine /Applications/LazyClick.app`).
 
 ### Build from source
 
 ```sh
 ./build.sh                                   # tests + Release build -> build/LazyClick.app
+pkill -x LazyClick                           # quit the old copy; replacing a running app makes open fail
+rm -rf /Applications/LazyClick.app
 cp -R build/LazyClick.app /Applications/
 open /Applications/LazyClick.app
 ```
@@ -75,6 +77,7 @@ open /Applications/LazyClick.app
 ```sh
 SKIP_TESTS=1 ./build.sh                                          # skip tests
 CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh  # stable signing identity
+CODESIGN_IDENTITY="Developer ID Application" ./build.sh          # release: notarize, staple -> build/LazyClick.zip
 ```
 
 - Ad-hoc signed builds get a new identity on every rebuild, so macOS may ask you to re-grant Accessibility. Sign with a fixed identity to avoid that.
@@ -84,7 +87,7 @@ CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh  # stable signin
 
 ### Grant Accessibility access
 
-LazyClick needs **Accessibility** to post click/drag events. On first launch Settings opens with a banner and an **Open System Settings** button:
+LazyClick needs **Accessibility** to post click/drag events. On first launch a welcome window introduces the app and asks for it — click **Allow Access**, or later use the banner in Settings:
 
 1. System Settings → Privacy & Security → **Accessibility**
 2. Switch on **LazyClick**
@@ -93,7 +96,7 @@ Gestures start automatically once access is granted. Reading touches needs no pe
 
 ## 🧭 Using it
 
-Click the menu bar icon for **Enabled**, **Magic Mouse status + battery**, the **gesture style**, **Settings…**, **Launch at Login** and **Quit**. Turning *Enabled* off instantly releases any synthetic button and stops all injection.
+Click the menu bar icon for **Magic Mouse status + battery**, **Enabled**, the **gesture style**, **Click Sound**, **Settings** and **Quit**. *Launch at Login* is in Settings → General. Turning *Enabled* off instantly releases any synthetic button and stops all injection.
 
 ## 🔧 Troubleshooting
 
@@ -102,6 +105,7 @@ Click the menu bar icon for **Enabled**, **Magic Mouse status + battery**, the *
 | Nothing happens | Is Accessibility granted? Is the mouse connected (toggle its Bluetooth)? A dimmed menu bar icon means disabled / no permission / touch API fault. |
 | Accessibility is on but gestures stopped after a rebuild | Switch it off and on again, or remove LazyClick (−) and re-add it. |
 | Accidental clicks | Keep fingers from sliding; tap with the fingertip. |
+| Swipe goes back two pages | macOS is navigating too: turn off **Swipe between pages** in System Settings → Mouse → More Gestures, or **Swipe sideways** in LazyClick. |
 | Launch at Login fails | Move the app to `/Applications` and approve it in System Settings → General → Login Items. |
 | Check raw touch data | `/Applications/LazyClick.app/Contents/MacOS/LazyClick --probe 15` |
 
@@ -146,3 +150,5 @@ LazyClick is free and open source. If it saves you a few clicks, you can [buy me
 ## 📄 License
 
 [MIT](LICENSE)
+
+The Magic Mouse click sound (`Resources/Magic Mouse.wav`) is a short excerpt of [MAGIC MOUSE.wav](https://freesound.org/people/kintana24/sounds/371223/) by kintana24, released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

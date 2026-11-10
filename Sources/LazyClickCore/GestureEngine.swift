@@ -10,6 +10,12 @@ import Foundation
 public final class GestureEngine {
     public var config: GestureConfig
     public var onAction: ((GestureAction) -> Void)?
+    /// Asked once per touch in mouse style: is the OS region-screenshot crosshair up?
+    /// Any click there ends the selection, so tap-then-drag can't work.
+    public var isRegionSelecting: () -> Bool = { false }
+    /// Asked per touch in mouse style: is the pointer on the floating screenshot thumbnail?
+    /// A tap there opens Markup, so tap-then-drag can't work.
+    public var isOverScreenshotThumbnail: (CGPoint) -> Bool = { _ in false }
 
     private enum Phase {
         case idle          // no fingers
@@ -40,6 +46,8 @@ public final class GestureEngine {
     private var lastCursor = CGPoint.zero
     private var slid = false           // a finger slid across the surface (scroll/swipe)
     private var dragArmed = false      // mouse style: this touch follows a left tap closely -> may become a drag
+    private var regionDrag = false     // mouse style: this touch landed during a region screenshot
+    private var swipeOpen = false      // this touch can still become a back/forward swipe
     private var sessionStartX: Float = 0.5
     private var pinchGap: Float = 0
 
@@ -49,6 +57,34 @@ public final class GestureEngine {
         self.config = config
         tracks.reserveCapacity(8)
         active.reserveCapacity(8)
+    }
+
+    /// Reads a CGWindowList result. `screencapture` owns a window while the crosshair is up. "Screenshot" always has a
+    /// low full-screen window, and only the Cmd+Shift+5 toolbar, which needs real clicks, sits above the crosshair.
+    /// shortcut: "Screenshot" is the name seen on this Mac, switch to a pid/bundle-id check if another locale renames it.
+    public static func regionSelecting(windows: [[String: Any]]) -> Bool {
+        func topLayer(_ owner: String) -> Int {
+            windows.filter { $0[kCGWindowOwnerName as String] as? String == owner }
+                .compactMap { $0[kCGWindowLayer as String] as? Int }.max() ?? -1
+        }
+        let crosshair = topLayer("screencapture")
+        return crosshair >= 0 && topLayer("Screenshot") < crosshair
+    }
+
+    /// The thumbnail is drawn inside a full-screen "Screenshot" window, so window bounds alone can't locate it. It is
+    /// pinned to that window's bottom-right corner; measured at most 188x125 with a 12pt margin.
+    /// shortcut: touching the empty part of the corner can start a drag while the thumbnail is up, measure the image if that bites.
+    public static func overScreenshotThumbnail(_ point: CGPoint, windows: [[String: Any]]) -> Bool {
+        let corner = CGSize(width: 210, height: 145)
+        return windows.contains { w in
+            guard w[kCGWindowOwnerName as String] as? String == "Screenshot",
+                  let dict = w[kCGWindowBounds as String] as? [String: Any],
+                  let r = CGRect(dictionaryRepresentation: dict as CFDictionary),
+                  r.height > corner.height // the Cmd+Shift+5 toolbar is shorter and needs real clicks
+            else { return false }
+            return CGRect(x: r.maxX - corner.width, y: r.maxY - corner.height,
+                          width: corner.width, height: corner.height).contains(point)
+        }
     }
 
     public var isIdle: Bool { phase == .idle && !requireLift }
@@ -137,9 +173,9 @@ public final class GestureEngine {
         sessionStartX = active.first?.x ?? 0.5
         threeSince = nil
         dragArmed = false
+        regionDrag = config.style == .mouse && config.tapDragEnabled && isRegionSelecting()
         if config.style == .mouse, config.tapDragEnabled, active.count == 1,
-           let prev = lastTap,
-           t - prev.time <= config.doubleClickInterval {
+           regionDrag || lastTap.map({ t - $0.time <= config.doubleClickInterval }) == true || isOverScreenshotThumbnail(cursor) {
             // Time only: a quick tap-and-drag is already moving the pointer when the finger lands.
             dragArmed = true
         }
@@ -192,6 +228,8 @@ public final class GestureEngine {
             threeSince = nil
         }
 
+        if updateSwipe(t, physicalDown, moved: moved) { return }
+
         if config.style == .mouse {
             updateMouseStyle(t, cursor, physicalDown, moved: moved)
             return
@@ -209,7 +247,7 @@ public final class GestureEngine {
             }
         }
 
-        if !tapValid && !(config.threeFingerDragEnabled && peak >= 3) {
+        if !tapValid && !swipeOpen && !(config.threeFingerDragEnabled && peak >= 3) {
             // Nothing else can come of this session; wait for every finger to lift.
             phase = .ignoring
         }
@@ -225,7 +263,27 @@ public final class GestureEngine {
             beginDrag(cursor)
             return
         }
-        if !tapValid && !dragArmed { phase = .ignoring }
+        if !tapValid && !dragArmed && !swipeOpen { phase = .ignoring }
+    }
+
+    /// One finger flicked sideways while the mouse stays still: left-to-right = back, right-to-left = forward.
+    /// Returns true if it fired; otherwise `swipeOpen` says whether the flick can still complete.
+    private func updateSwipe(_ t: Double, _ physicalDown: Bool, moved: Double) -> Bool {
+        swipeOpen = false
+        guard config.swipeNavigationEnabled, peak == 1, active.count == 1, !physicalDown,
+              moved < config.cursorTapTolerance, t - sessionStart <= config.swipeMaxDuration,
+              let tr = tracks.first(where: { $0.id == active[0].id }) else { return false }
+        let dx = active[0].x - tr.startX
+        // The sensor is ~1.75x taller than wide, so 3x normalized is ~1.7x in real distance.
+        guard abs(dx) >= config.swipeDistance, abs(dx) > 3 * abs(active[0].y - tr.startY) else {
+            swipeOpen = true
+            return false
+        }
+        phase = .ignoring
+        tapValid = false
+        lastTap = nil
+        emit(.navigate(back: dx > 0))
+        return true
     }
 
     /// Current and session-start distance between the two fingers, nil unless exactly two tracked fingers.
@@ -303,7 +361,7 @@ public final class GestureEngine {
 
     private func emitTap(peak: Int, time t: Double, cursor: CGPoint) {
         if config.style == .mouse {
-            guard peak == 1 else { return }
+            guard peak == 1, !regionDrag else { return }
             let isLeftHalf = (sessionStartX < config.sideSplit) != config.swapSides
             if isLeftHalf {
                 if config.leftSideTapEnabled { emitLeftTap(time: t, cursor: cursor) }

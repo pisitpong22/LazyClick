@@ -22,6 +22,20 @@ if CommandLine.arguments.contains("--show-settings") {
     preview.run()
 }
 
+// `LazyClick --show-onboarding [--page <n>]` opens only the first-run window for UI checks.
+if CommandLine.arguments.contains("--show-onboarding") {
+    Preferences.registerDefaults() // the Click Sound row plays the default sound on hover
+    let preview = NSApplication.shared
+    preview.setActivationPolicy(.regular)
+    let controller = OnboardingWindowController(onClose: { exit(0) })
+    controller.present()
+    if let i = CommandLine.arguments.firstIndex(of: "--page"), i + 1 < CommandLine.arguments.count,
+       let n = Int(CommandLine.arguments[i + 1]) {
+        controller.showPage(n)
+    }
+    preview.run()
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
