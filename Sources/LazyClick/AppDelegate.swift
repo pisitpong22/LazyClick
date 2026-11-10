@@ -1,5 +1,6 @@
 import AppKit
 import LazyClickCore
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let adapter = MultitouchAdapter()
@@ -9,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var onboarding: OnboardingWindowController?
     private var permissionObserver: NSObjectProtocol?
     private var signalSources: [DispatchSourceSignal] = []
+    // A bare `swift run` binary has no Info.plist feed or key, so only a real .app checks for updates.
+    private let updater = SPUStandardUpdaterController(startingUpdater: Bundle.main.bundlePath.hasSuffix(".app"), updaterDelegate: nil, userDriverDelegate: nil)
 
     private var deviceCount = 0
     private var batteryPercent: Int?
@@ -141,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for item in [statusLine, .separator(), enabledItem, .separator(), trackpadItem, mouseItem, soundItem, .separator(), permissionItem] {
             menu.addItem(item)
         }
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "").target = updater
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Quit LazyClick", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
