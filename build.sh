@@ -5,6 +5,9 @@
 #   SKIP_TESTS=1 ./build.sh skip the test run
 #   CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh
 #                           sign with a stable identity so the Accessibility grant survives rebuilds
+#   CODESIGN_IDENTITY="Developer ID Application" ./build.sh
+#                           release: also notarize + staple and write build/LazyClick.zip
+#                           (once first: xcrun notarytool store-credentials LazyClick)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -44,8 +47,24 @@ fi
 
 echo "==> Signing (identity: ${IDENTITY/#-/ad-hoc})"
 # Hardened runtime: otherwise DYLD_INSERT_LIBRARIES lets other code inherit the Accessibility grant.
-codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --options runtime --timestamp=none "$OUT"
+# Notarization requires a secure timestamp; other builds skip it so they work offline.
+if [[ "$IDENTITY" == "Developer ID Application"* ]]; then TIMESTAMP="--timestamp"; else TIMESTAMP="--timestamp=none"; fi
+codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --options runtime "$TIMESTAMP" "$OUT"
 codesign --verify --verbose=1 "$OUT"
+
+if [[ "$IDENTITY" == "Developer ID Application"* ]]; then
+  ZIP="build/${APP_NAME}.zip"
+  echo "==> Notarizing (takes a few minutes)"
+  ditto -c -k --keepParent "$OUT" "$ZIP"
+  xcrun notarytool submit "$ZIP" --keychain-profile "$APP_NAME" --wait
+  # notarytool can exit 0 on a rejected submission; stapler fails if there is no ticket.
+  xcrun stapler staple "$OUT"
+  spctl --assess --type execute --verbose "$OUT"
+  # Zip again so the download carries the stapled ticket.
+  rm -f "$ZIP"
+  ditto -c -k --keepParent "$OUT" "$ZIP"
+  echo "Release zip: $PWD/$ZIP"
+fi
 
 echo "==> Architecture: $(lipo -archs "$OUT/Contents/MacOS/$BIN_NAME")"
 echo "==> Size: $(du -sh "$OUT" | cut -f1)"

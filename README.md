@@ -60,7 +60,6 @@ brew install --cask pisitpong22/tap/lazyclick
 ```
 
 **Or download:** get `LazyClick.zip` from [Releases](https://github.com/pisitpong22/LazyClick/releases/latest), unzip, and drag `LazyClick.app` to Applications.
-The app is not notarized yet, so on first launch right-click → **Open** (or run `xattr -dr com.apple.quarantine /Applications/LazyClick.app`).
 
 ### Build from source
 
@@ -78,6 +77,7 @@ open /Applications/LazyClick.app
 ```sh
 SKIP_TESTS=1 ./build.sh                                          # skip tests
 CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh  # stable signing identity
+CODESIGN_IDENTITY="Developer ID Application" ./build.sh          # release: notarize, staple -> build/LazyClick.zip
 ```
 
 - Ad-hoc signed builds get a new identity on every rebuild, so macOS may ask you to re-grant Accessibility. Sign with a fixed identity to avoid that.
