@@ -14,7 +14,8 @@ cd "$(dirname "$0")"
 
 APP_NAME="LazyClick"
 BIN_NAME="LazyClick"
-VERSION="${VERSION:-1.0.0}"
+# Local builds take the latest release tag, so they don't report an older version than what's installed.
+VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 1.0.0)}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
 IDENTITY="${CODESIGN_IDENTITY:--}"
 OUT="build/${APP_NAME}.app"
