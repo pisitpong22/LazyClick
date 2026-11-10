@@ -96,6 +96,10 @@ enum CursorState {
     static func regionSelecting() -> Bool {
         GestureEngine.regionSelecting(windows: CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? [])
     }
+
+    static func overScreenshotThumbnail(_ point: CGPoint) -> Bool {
+        GestureEngine.overScreenshotThumbnail(point, windows: CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? [])
+    }
 }
 
 

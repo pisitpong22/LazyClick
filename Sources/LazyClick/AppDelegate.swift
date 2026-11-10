@@ -29,7 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             config: GestureConfig(),
             cursorProvider: CursorState.location,
             physicalButtonProvider: CursorState.physicalButtonDown,
-            regionSelectingProvider: CursorState.regionSelecting
+            regionSelectingProvider: CursorState.regionSelecting,
+            screenshotThumbnailProvider: CursorState.overScreenshotThumbnail
         )
         super.init()
     }

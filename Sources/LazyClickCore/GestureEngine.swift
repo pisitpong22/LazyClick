@@ -13,6 +13,9 @@ public final class GestureEngine {
     /// Asked once per touch in mouse style: is the OS region-screenshot crosshair up?
     /// Any click there ends the selection, so tap-then-drag can't work.
     public var isRegionSelecting: () -> Bool = { false }
+    /// Asked per touch in mouse style: is the pointer on the floating screenshot thumbnail?
+    /// A tap there opens Markup, so tap-then-drag can't work.
+    public var isOverScreenshotThumbnail: (CGPoint) -> Bool = { _ in false }
 
     private enum Phase {
         case idle          // no fingers
@@ -66,6 +69,22 @@ public final class GestureEngine {
         }
         let crosshair = topLayer("screencapture")
         return crosshair >= 0 && topLayer("Screenshot") < crosshair
+    }
+
+    /// The thumbnail is drawn inside a full-screen "Screenshot" window, so window bounds alone can't locate it. It is
+    /// pinned to that window's bottom-right corner; measured at most 188x125 with a 12pt margin.
+    /// shortcut: touching the empty part of the corner can start a drag while the thumbnail is up, measure the image if that bites.
+    public static func overScreenshotThumbnail(_ point: CGPoint, windows: [[String: Any]]) -> Bool {
+        let corner = CGSize(width: 210, height: 145)
+        return windows.contains { w in
+            guard w[kCGWindowOwnerName as String] as? String == "Screenshot",
+                  let dict = w[kCGWindowBounds as String] as? [String: Any],
+                  let r = CGRect(dictionaryRepresentation: dict as CFDictionary),
+                  r.height > corner.height // the Cmd+Shift+5 toolbar is shorter and needs real clicks
+            else { return false }
+            return CGRect(x: r.maxX - corner.width, y: r.maxY - corner.height,
+                          width: corner.width, height: corner.height).contains(point)
+        }
     }
 
     public var isIdle: Bool { phase == .idle && !requireLift }
@@ -156,7 +175,7 @@ public final class GestureEngine {
         dragArmed = false
         regionDrag = config.style == .mouse && config.tapDragEnabled && isRegionSelecting()
         if config.style == .mouse, config.tapDragEnabled, active.count == 1,
-           regionDrag || lastTap.map({ t - $0.time <= config.doubleClickInterval }) == true {
+           regionDrag || lastTap.map({ t - $0.time <= config.doubleClickInterval }) == true || isOverScreenshotThumbnail(cursor) {
             // Time only: a quick tap-and-drag is already moving the pointer when the finger lands.
             dragArmed = true
         }

@@ -33,7 +33,8 @@ public final class GestureController {
                 config: GestureConfig = GestureConfig(),
                 cursorProvider: @escaping () -> CGPoint,
                 physicalButtonProvider: @escaping () -> Bool,
-                regionSelectingProvider: @escaping () -> Bool = { false }) {
+                regionSelectingProvider: @escaping () -> Bool = { false },
+                screenshotThumbnailProvider: @escaping (CGPoint) -> Bool = { _ in false }) {
         self.engine = GestureEngine(config: config)
         self.mouse = SyntheticMouse(poster: poster)
         self.timer = timer
@@ -41,6 +42,7 @@ public final class GestureController {
         self.physicalButtonProvider = physicalButtonProvider
         scratch.reserveCapacity(MTLayout.maxPlausibleContacts)
         engine.isRegionSelecting = regionSelectingProvider
+        engine.isOverScreenshotThumbnail = screenshotThumbnailProvider
         engine.onAction = { [unowned self] action in self.perform(action) }
     }
 
