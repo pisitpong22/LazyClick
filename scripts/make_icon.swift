@@ -14,7 +14,9 @@ func render(_ px: Int) -> Data {
                         space: CGColorSpace(name: CGColorSpace.sRGB)!,
                         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     ctx.interpolationQuality = .high
-    ctx.draw(master, in: CGRect(x: 0, y: 0, width: px, height: px))
+    // The master fills 91% of its canvas; macOS icons fill about 80%, so without this margin it looks oversized in the Dock.
+    let margin = CGFloat(px) * 0.06
+    ctx.draw(master, in: CGRect(x: 0, y: 0, width: px, height: px).insetBy(dx: margin, dy: margin))
     return NSBitmapImageRep(cgImage: ctx.makeImage()!).representation(using: .png, properties: [:])!
 }
 
