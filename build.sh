@@ -8,6 +8,7 @@
 #   CODESIGN_IDENTITY="Developer ID Application" ./build.sh
 #                           release: also notarize + staple and write build/LazyClick.zip
 #                           (once first: xcrun notarytool store-credentials LazyClick)
+#                           and build/appcast.xml for Sparkle; upload both to the vVERSION GitHub release
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -34,6 +35,11 @@ echo "==> Assembling ${OUT}"
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 cp "$BIN_DIR/$BIN_NAME" "$OUT/Contents/MacOS/$BIN_NAME"
+mkdir -p "$OUT/Contents/Frameworks"
+ditto "$BIN_DIR/Sparkle.framework" "$OUT/Contents/Frameworks/Sparkle.framework"
+# The XPC services are only for sandboxed apps; LazyClick is not sandboxed.
+rm -rf "$OUT/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices" "$OUT/Contents/Frameworks/Sparkle.framework/XPCServices"
+install_name_tool -add_rpath @executable_path/../Frameworks "$OUT/Contents/MacOS/$BIN_NAME"
 cp "Resources/Magic Mouse.wav" "$OUT/Contents/Resources/"
 sed -e "s/__VERSION__/${VERSION}/" -e "s/__BUILD__/${BUILD_NUMBER}/" Resources/Info.plist > "$OUT/Contents/Info.plist"
 printf 'APPL????' > "$OUT/Contents/PkgInfo"
@@ -49,7 +55,18 @@ echo "==> Signing (identity: ${IDENTITY/#-/ad-hoc})"
 # Hardened runtime: otherwise DYLD_INSERT_LIBRARIES lets other code inherit the Accessibility grant.
 # Notarization requires a secure timestamp; other builds skip it so they work offline.
 if [[ "$IDENTITY" == "Developer ID Application"* ]]; then TIMESTAMP="--timestamp"; else TIMESTAMP="--timestamp=none"; fi
-codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --options runtime "$TIMESTAMP" "$OUT"
+# Sign Sparkle inside-out with our identity, then the app (hardened-runtime library validation needs one team).
+SPARKLE="$OUT/Contents/Frameworks/Sparkle.framework"
+for part in "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app" "$SPARKLE"; do
+  codesign --force --sign "$IDENTITY" --options runtime "$TIMESTAMP" "$part"
+done
+# Ad-hoc signatures carry no Team ID, so library validation would refuse Sparkle; real identities keep it on.
+ENTITLEMENTS=()
+if [[ "$IDENTITY" == "-" ]]; then
+  /usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" build/adhoc.entitlements >/dev/null 2>&1 || true
+  ENTITLEMENTS=(--entitlements build/adhoc.entitlements)
+fi
+codesign --force --sign "$IDENTITY" --identifier io.github.pisitpong22.LazyClick --options runtime "$TIMESTAMP" ${ENTITLEMENTS[@]+"${ENTITLEMENTS[@]}"} "$OUT"
 codesign --verify --verbose=1 "$OUT"
 
 if [[ "$IDENTITY" == "Developer ID Application"* ]]; then
@@ -63,7 +80,14 @@ if [[ "$IDENTITY" == "Developer ID Application"* ]]; then
   # Zip again so the download carries the stapled ticket.
   rm -f "$ZIP"
   ditto -c -k --keepParent "$OUT" "$ZIP"
+  echo "==> Writing appcast (signs the zip with the Sparkle key in your login keychain)"
+  APPCAST_DIR="build/appcast"
+  rm -rf "$APPCAST_DIR" && mkdir -p "$APPCAST_DIR" && cp "$ZIP" "$APPCAST_DIR/"
+  .build/artifacts/sparkle/Sparkle/bin/generate_appcast \
+    --download-url-prefix "https://github.com/pisitpong22/LazyClick/releases/download/v${VERSION}/" "$APPCAST_DIR"
+  cp "$APPCAST_DIR/appcast.xml" build/appcast.xml
   echo "Release zip: $PWD/$ZIP"
+  echo "Upload both to the v${VERSION} release: $PWD/$ZIP $PWD/build/appcast.xml"
 fi
 
 echo "==> Architecture: $(lipo -archs "$OUT/Contents/MacOS/$BIN_NAME")"

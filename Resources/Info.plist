@@ -16,5 +16,8 @@
     <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>SUFeedURL</key><string>https://github.com/pisitpong22/LazyClick/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>Z+8PVAPjzwC34eoCqOsvTQCUqsNfMB2MW/flaTa+pR0=</string>
+    <key>SUEnableAutomaticChecks</key><true/>
 </dict>
 </plist>
