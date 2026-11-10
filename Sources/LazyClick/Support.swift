@@ -131,3 +131,19 @@ enum MouseBattery {
         }
     }
 }
+
+/// Opens a mail draft with version info filled in, so feedback arrives with what we need to debug.
+enum Feedback {
+    static func send() {
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] ?? "?") (\(info?["CFBundleVersion"] ?? "?"))"
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = "madeforme.apps@gmail.com"
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "LazyClick Feedback"),
+            URLQueryItem(name: "body", value: "\n\n---\nLazyClick \(version)\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nStyle: \(Preferences.style)"),
+        ]
+        if let url = c.url { NSWorkspace.shared.open(url) }
+    }
+}

@@ -240,6 +240,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSToolbarDeleg
             controlRow("Sound", soundPopup),
             controlRow("Volume", volume),
         ], width: lw))
+        generalStack.addArrangedSubview(section("SUPPORT", rows: [
+            controlRow("Questions or ideas?", NSButton(title: "Send Feedback…", target: self, action: #selector(sendFeedback))),
+        ], width: lw))
 
         return w
     }
@@ -262,6 +265,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSToolbarDeleg
         permissionBanner.widthAnchor.constraint(equalToConstant: width).isActive = true
         return permissionBanner
     }
+
+    @objc private func sendFeedback() { Feedback.send() }
 
     @objc private func openAccessibility() {
         Permission.request()
