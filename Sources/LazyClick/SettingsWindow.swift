@@ -242,6 +242,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSToolbarDeleg
         ], width: lw))
         generalStack.addArrangedSubview(section("SUPPORT", rows: [
             controlRow("Questions or ideas?", NSButton(title: "Send Feedback…", target: self, action: #selector(sendFeedback))),
+            // nil target: the app delegate handles it, so the menu bar icon updates too
+            controlRow("Enjoying LazyClick?", NSButton(title: "Support LazyClick…", target: nil, action: #selector(AppDelegate.openSupport))),
         ], width: lw))
 
         return w
