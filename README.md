@@ -11,6 +11,10 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 ![Size](https://img.shields.io/badge/download-~2%20MB-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
+<a href="https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.zip"><img src="https://img.shields.io/badge/%E2%AC%87%20Download%20LazyClick-for%20Mac-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download LazyClick for Mac" height="48"></a>
+
+<sub>Free · Apple Silicon Mac with macOS 13+ · [How to install ↓](#install)</sub>
+
 <img src="docs/images/showcase/01-hero.jpg" alt="Why press… when you can tap? LazyClick turns a light tap on your Magic Mouse into a click" width="100%">
 
 <sub>The Settings window shows a looping preview of every gesture: your fingers on a top-down Magic Mouse, and what happens on a tiny desktop.</sub>
@@ -64,13 +68,24 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 
 ### Install
 
-**Homebrew**
+No Terminal needed — about a minute:
+
+1. **[Click here to download LazyClick](https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.zip)** (~2 MB).
+2. Open your **Downloads** folder and double-click **LazyClick.zip** — `LazyClick.app` appears next to it.
+3. Drag **LazyClick** into the **Applications** folder (in the Finder sidebar).
+4. Open **Applications** and double-click **LazyClick**. If macOS asks *"Are you sure you want to open it?"*, click **Open**.
+5. A welcome window appears — click **Allow Access** and switch **LazyClick** on in the window that opens ([details below](#grant-accessibility-access)).
+
+That's it — tap your Magic Mouse to click. LazyClick updates itself, so you only do this once.
+
+<details>
+<summary>Prefer Homebrew?</summary>
 
 ```sh
 brew install --cask pisitpong22/tap/lazyclick
 ```
 
-**Or download:** get `LazyClick.zip` from [Releases](https://github.com/pisitpong22/LazyClick/releases/latest), unzip, and drag `LazyClick.app` to Applications.
+</details>
 
 ### Build from source
 

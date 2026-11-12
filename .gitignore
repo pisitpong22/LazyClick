@@ -4,3 +4,7 @@ build/
 .DS_Store
 .swiftpm/
 build.test.log
+build.release.log
+brag-output*/
+canvas-design-output/
+marketing/
