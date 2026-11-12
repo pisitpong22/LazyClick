@@ -8,7 +8,7 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue?logo=apple&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-black)
 ![Swift](https://img.shields.io/badge/Swift-5-orange?logo=swift&logoColor=white)
-![Size](https://img.shields.io/badge/bundle-~430%20KB-brightgreen)
+![Size](https://img.shields.io/badge/download-~2%20MB-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 <img src="docs/images/settings.png" alt="LazyClick settings window with live gesture preview" width="440">
@@ -25,7 +25,7 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 - 🖐️ **Tap-and-drag** — tap, touch again, and move the mouse to drag; lift to drop
 - 🎛️ **Two styles** — *Mouse style* (default) or *Trackpad style* (1 / 2 / 3-finger taps)
 - 🔋 **Battery in the menu** — see your mouse's charge at a glance
-- 🪶 **Featherweight** — Swift + AppKit only, no packages, no network, no helper processes, ~0 % CPU when idle
+- 🪶 **Featherweight** — Swift + AppKit, ~0 % CPU when idle; the only network use is the update check (Sparkle)
 - 🔒 **Non-invasive** — physical clicks, pointer movement, scrolling and swipes are never intercepted; LazyClick only *adds* events
 
 ## 🎯 Gestures
@@ -96,7 +96,7 @@ Gestures start automatically once access is granted. Reading touches needs no pe
 
 ## 🧭 Using it
 
-Click the menu bar icon for **Magic Mouse status + battery**, **Enabled**, the **gesture style**, **Click Sound**, **Settings** and **Quit**. *Launch at Login* is in Settings → General. Turning *Enabled* off instantly releases any synthetic button and stops all injection.
+Click the menu bar icon for **Magic Mouse status + battery**, **Enabled**, the **gesture style**, **Click Sound**, **Check for Updates**, **Send Feedback**, **Support LazyClick**, **Settings** and **Quit**. *Launch at Login* is in Settings → General. Turning *Enabled* off instantly releases any synthetic button and stops all injection. When an update is available the icon turns blue and the menu shows it at the top.
 
 ## 🔧 Troubleshooting
 

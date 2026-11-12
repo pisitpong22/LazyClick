@@ -22,6 +22,8 @@ enum Preferences {
         static let clickVolume = "clickVolume"
         static let lastClickSound = "lastClickSound"
         static let settingsPane = "settingsPane"
+        static let clickCount = "clickCount"
+        static let supportSeen = "supportSeen"
     }
 
     static func registerDefaults() {
@@ -51,6 +53,8 @@ enum Preferences {
     static func set(_ value: Bool, for key: String) { d.set(value, forKey: key) }
     static func double(_ key: String) -> Double { d.double(forKey: key) }
     static func set(_ value: Double, for key: String) { d.set(value, forKey: key) }
+    static func int(_ key: String) -> Int { d.integer(forKey: key) }
+    static func set(_ value: Int, for key: String) { d.set(value, forKey: key) }
     static func string(_ key: String) -> String { d.string(forKey: key) ?? "" }
     static func set(_ value: String, for key: String) { d.set(value, forKey: key) }
     /// Setting this remembers the outgoing sound, so turning sound back on restores it.

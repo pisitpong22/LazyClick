@@ -217,7 +217,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
         let reasons = NSStackView(views: [
             featureRow("cursorarrow.click.2", "What it's for", "macOS requires Accessibility access before an app can turn your taps into clicks and drags.", text, detailColor: .labelColor),
-            featureRow("eye.slash", "What it doesn't do", "LazyClick doesn't read your screen or keystrokes, and it never connects to the internet.", text, detailColor: .labelColor),
+            featureRow("eye.slash", "What it doesn't do", "LazyClick doesn't read your screen or keystrokes. It only goes online to check for updates.", text, detailColor: .labelColor),
             featureRow("switch.2", "You stay in control", "Turn it off anytime in System Settings › Privacy & Security › Accessibility.", text, detailColor: .labelColor),
         ])
         reasons.orientation = .vertical

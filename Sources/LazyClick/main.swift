@@ -36,6 +36,14 @@ if CommandLine.arguments.contains("--show-onboarding") {
     preview.run()
 }
 
+// `LazyClick --show-support` opens only the support window for UI checks.
+if CommandLine.arguments.contains("--show-support") {
+    let preview = NSApplication.shared
+    preview.setActivationPolicy(.regular)
+    SupportWindowController.show()
+    preview.run()
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

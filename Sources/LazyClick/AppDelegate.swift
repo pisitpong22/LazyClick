@@ -2,7 +2,7 @@ import AppKit
 import LazyClickCore
 import Sparkle
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUStandardUserDriverDelegate {
     private let adapter = MultitouchAdapter()
     private let controller: GestureController
     private var statusItem: NSStatusItem!
@@ -11,7 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionObserver: NSObjectProtocol?
     private var signalSources: [DispatchSourceSignal] = []
     // A bare `swift run` binary has no Info.plist feed or key, so only a real .app checks for updates.
-    private let updater = SPUStandardUpdaterController(startingUpdater: Bundle.main.bundlePath.hasSuffix(".app"), updaterDelegate: nil, userDriverDelegate: nil)
+    private lazy var updater = SPUStandardUpdaterController(startingUpdater: Bundle.main.bundlePath.hasSuffix(".app"), updaterDelegate: nil, userDriverDelegate: self)
+    /// Set while Sparkle holds a found update we chose not to pop up; the icon turns blue instead.
+    private var availableUpdate: String?
 
     private var deviceCount = 0
     private var batteryPercent: Int?
@@ -24,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let mouseItem = NSMenuItem(title: "Mouse Style", action: #selector(AppDelegate.selectStyle(_:)), keyEquivalent: "")
     private let soundItem = NSMenuItem(title: "Click Sound", action: #selector(AppDelegate.toggleClickSound), keyEquivalent: "")
     private let permissionItem = NSMenuItem(title: "Grant Accessibility Access…", action: #selector(AppDelegate.grantPermission), keyEquivalent: "")
+    private let updateItem = NSMenuItem(title: "", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+    private let milestoneItem = NSMenuItem(title: "🎉 \(SupportWindowController.milestone.formatted()) clicks with LazyClick!", action: #selector(AppDelegate.openSupport), keyEquivalent: "")
 
     override init() {
         controller = GestureController(
@@ -49,7 +53,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.refreshStatusIcon()
             }
         }
-        controller.onClick = { DispatchQueue.main.async { ClickSound.play() } }
+        controller.onClick = { [weak self] in
+            DispatchQueue.main.async {
+                ClickSound.play()
+                self?.countClick()
+            }
+        }
 
         MultitouchAdapter.frameHandler = { [controller] base, count, ts in
             controller.handleRawFrame(base, count: count, timestamp: ts)
@@ -141,11 +150,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false // the status line and style items are enabled by hand
         menu.delegate = self
-        for item in [statusLine, .separator(), enabledItem, .separator(), trackpadItem, mouseItem, soundItem, .separator(), permissionItem] {
+        updateItem.target = updater
+        for item in [statusLine, updateItem, milestoneItem, .separator(), enabledItem, .separator(), trackpadItem, mouseItem, soundItem, .separator(), permissionItem] {
             menu.addItem(item)
         }
         menu.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "").target = updater
         menu.addItem(withTitle: "Send Feedback…", action: #selector(sendFeedback), keyEquivalent: "")
+        menu.addItem(withTitle: "Support LazyClick…", action: #selector(openSupport), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Quit LazyClick", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
@@ -176,6 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         img?.isTemplate = true
         button.image = img
         button.appearsDisabled = !isActive // dim when not handling gestures
+        updateItem.title = "Update Available: \(availableUpdate ?? "")…"
+        updateItem.isHidden = availableUpdate == nil
+        milestoneItem.isHidden = !milestonePending
+        button.contentTintColor = availableUpdate != nil || milestonePending ? .systemBlue : nil // "something to look at"
         let status = statusText + (batteryPercent.map { " · Battery \($0)%" } ?? "")
         statusLine.title = status
         button.setAccessibilityValue(status)
@@ -189,6 +204,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.batteryPercent = pct
             self.refreshStatusIcon()
         }
+    }
+
+    private var milestonePending: Bool {
+        Preferences.int(Preferences.Key.clickCount) >= SupportWindowController.milestone && !Preferences.bool(Preferences.Key.supportSeen)
+    }
+
+    private func countClick() {
+        let n = Preferences.int(Preferences.Key.clickCount) + 1
+        Preferences.set(n, for: Preferences.Key.clickCount)
+        if n == SupportWindowController.milestone { refreshStatusIcon() }
     }
 
     private var isActive: Bool {
@@ -244,6 +269,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func grantPermission() { showPermissionAlert() }
 
     @objc func sendFeedback() { Feedback.send() }
+
+    @objc func openSupport() {
+        SupportWindowController.show()
+        refreshStatusIcon()
+    }
+
+    // MARK: - Sparkle gentle reminders (a background app shouldn't pop an update window on its own)
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverShouldHandleShowingScheduledUpdate(_ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool) -> Bool {
+        false
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        guard !state.userInitiated else { return }
+        availableUpdate = update.displayVersionString
+        refreshStatusIcon()
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        availableUpdate = nil
+        refreshStatusIcon()
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        availableUpdate = nil
+        refreshStatusIcon()
+    }
 
     @objc func openSettings() {
         if settings == nil {
