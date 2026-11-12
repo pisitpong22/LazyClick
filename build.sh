@@ -6,9 +6,9 @@
 #   CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh
 #                           sign with a stable identity so the Accessibility grant survives rebuilds
 #   CODESIGN_IDENTITY="Developer ID Application" ./build.sh
-#                           release: also notarize + staple and write build/LazyClick.zip
+#                           release: also notarize + staple and write build/LazyClick.zip and build/LazyClick.dmg
 #                           (once first: xcrun notarytool store-credentials LazyClick)
-#                           and build/appcast.xml for Sparkle; upload both to the vVERSION GitHub release
+#                           and build/appcast.xml for Sparkle; upload all three to the vVERSION GitHub release
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -81,6 +81,12 @@ if [[ "$IDENTITY" == "Developer ID Application"* ]]; then
   # Zip again so the download carries the stapled ticket.
   rm -f "$ZIP"
   ditto -c -k --keepParent "$OUT" "$ZIP"
+  echo "==> Building and notarizing the disk image (the download for new users; Sparkle keeps using the zip)"
+  DMG="build/${APP_NAME}.dmg"
+  scripts/make_dmg.sh "$OUT" "$DMG"
+  codesign --sign "$IDENTITY" --timestamp "$DMG"
+  xcrun notarytool submit "$DMG" --keychain-profile "$APP_NAME" --wait
+  xcrun stapler staple "$DMG"
   echo "==> Writing appcast (signs the zip with the Sparkle key in your login keychain)"
   APPCAST_DIR="build/appcast"
   rm -rf "$APPCAST_DIR" && mkdir -p "$APPCAST_DIR" && cp "$ZIP" "$APPCAST_DIR/"
@@ -88,7 +94,7 @@ if [[ "$IDENTITY" == "Developer ID Application"* ]]; then
     --download-url-prefix "https://github.com/pisitpong22/LazyClick/releases/download/v${VERSION}/" "$APPCAST_DIR"
   cp "$APPCAST_DIR/appcast.xml" build/appcast.xml
   echo "Release zip: $PWD/$ZIP"
-  echo "Upload both to the v${VERSION} release: $PWD/$ZIP $PWD/build/appcast.xml"
+  echo "Upload all three to the v${VERSION} release: $PWD/$ZIP $PWD/$DMG $PWD/build/appcast.xml"
 fi
 
 echo "==> Architecture: $(lipo -archs "$OUT/Contents/MacOS/$BIN_NAME")"

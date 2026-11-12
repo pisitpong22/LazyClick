@@ -8,10 +8,10 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue?logo=apple&logoColor=white)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-black)
 ![Swift](https://img.shields.io/badge/Swift-5-orange?logo=swift&logoColor=white)
-![Size](https://img.shields.io/badge/download-~2%20MB-brightgreen)
+![Size](https://img.shields.io/badge/download-~3%20MB-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-<a href="https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.zip"><img src="https://img.shields.io/badge/%E2%AC%87%20Download%20LazyClick-for%20Mac-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download LazyClick for Mac" height="48"></a>
+<a href="https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.dmg"><img src="https://img.shields.io/badge/%E2%AC%87%20Download%20LazyClick-for%20Mac-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download LazyClick for Mac" height="48"></a>
 
 <sub>Free · Apple Silicon Mac with macOS 13+ · [How to install ↓](#install)</sub>
 
@@ -70,15 +70,15 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 
 No Terminal needed — about a minute:
 
-1. **[Click here to download LazyClick](https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.zip)** (~2 MB).
-2. Open your **Downloads** folder and double-click **LazyClick.zip**, then double-click the **LazyClick** app that appears. If macOS asks *"Are you sure you want to open it?"*, click **Open**.
-3. Click **Move to Applications**. LazyClick installs itself, moves the download to the Trash and opens again.
+1. **[Click here to download LazyClick](https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.dmg)** (~3 MB).
+2. Open **LazyClick.dmg** from your Downloads. A window opens: drag **LazyClick** onto the **Applications** folder.
+3. Open **LazyClick** from Applications (or Launchpad). If macOS asks *"Are you sure you want to open it?"*, click **Open**.
 4. A welcome window appears — click **Allow Access** and switch **LazyClick** on in the window that opens ([details below](#grant-accessibility-access)).
 
-That's it — tap your Magic Mouse to click. LazyClick updates itself, so you only do this once.
+That's it — tap your Magic Mouse to click. LazyClick updates itself, so you only do this once. You can now eject the LazyClick disk and delete the download.
 
 <div align="center">
-<img src="docs/images/install-window.png" alt="Move to Applications window: LazyClick installs itself and moves the download to the Trash" width="460">
+<img src="docs/images/install-dmg.png" alt="The LazyClick disk image window: drag the LazyClick icon onto the Applications folder" width="460">
 </div>
 
 <details>
@@ -106,7 +106,7 @@ open /Applications/LazyClick.app
 ```sh
 SKIP_TESTS=1 ./build.sh                                          # skip tests
 CODESIGN_IDENTITY="Apple Development: Name (TEAMID)" ./build.sh  # stable signing identity
-CODESIGN_IDENTITY="Developer ID Application" ./build.sh          # release: notarize, staple -> build/LazyClick.zip
+CODESIGN_IDENTITY="Developer ID Application" ./build.sh          # release: notarize, staple -> build/LazyClick.zip + .dmg
 ```
 
 - Ad-hoc signed builds get a new identity on every rebuild, so macOS may ask you to re-grant Accessibility. Sign with a fixed identity to avoid that.

@@ -36,15 +36,6 @@ if CommandLine.arguments.contains("--show-onboarding") {
     preview.run()
 }
 
-// `LazyClick --show-install` opens only the move-to-Applications window for UI checks. Not Now quits; Move really installs.
-if CommandLine.arguments.contains("--show-install") {
-    let preview = NSApplication.shared
-    preview.setActivationPolicy(.regular)
-    let controller = InstallWindowController(onSkip: { exit(0) })
-    controller.present()
-    preview.run()
-}
-
 // `LazyClick --show-support` opens only the support window for UI checks.
 if CommandLine.arguments.contains("--show-support") {
     let preview = NSApplication.shared
