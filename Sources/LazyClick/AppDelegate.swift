@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUSta
     private var statusItem: NSStatusItem!
     private var settings: SettingsWindowController?
     private var onboarding: OnboardingWindowController?
+    private var install: InstallWindowController?
     private var permissionObserver: NSObjectProtocol?
     private var signalSources: [DispatchSourceSignal] = []
     // A bare `swift run` binary has no Info.plist feed or key, so only a real .app checks for updates.
@@ -45,6 +46,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUSta
     // MARK: - Launch
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // A copy opened from Downloads offers to install itself first; the copy in Applications then does the rest.
+        guard !InstallWindowController.shouldOffer else {
+            install = InstallWindowController(onSkip: { [weak self] in
+                self?.install = nil
+                self?.start()
+            })
+            install?.present()
+            return
+        }
+        start()
+    }
+
+    private func start() {
         Preferences.registerDefaults()
         controller.updateConfig(Preferences.gestureConfig())
         controller.onABIFault = { [weak self] in
@@ -92,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUSta
 
     /// Opening the app again (Finder/Launchpad) shows Settings, so a menu bar icon hidden by a crowded bar or the notch is never a dead end.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let onboarding { onboarding.present() } else { openSettings() }
+        if let install { install.present() } else if let onboarding { onboarding.present() } else { openSettings() }
         return true
     }
 
