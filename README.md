@@ -11,7 +11,7 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 ![Size](https://img.shields.io/badge/download-~2%20MB-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-<img src="docs/images/settings.png" alt="LazyClick settings window with live gesture preview" width="440">
+<img src="docs/images/showcase/01-hero.jpg" alt="Why press… when you can tap? LazyClick turns a light tap on your Magic Mouse into a click" width="100%">
 
 <sub>The Settings window shows a looping preview of every gesture: your fingers on a top-down Magic Mouse, and what happens on a tiny desktop.</sub>
 
@@ -28,7 +28,16 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 - 🪶 **Featherweight** — Swift + AppKit, ~0 % CPU when idle; the only network use is the update check (Sparkle)
 - 🔒 **Non-invasive** — physical clicks, pointer movement, scrolling and swipes are never intercepted; LazyClick only *adds* events
 
+<img src="docs/images/showcase/06-non-invasive.jpg" alt="Adds clicks, takes nothing away: press, scroll, swipe and pointer work as always" width="100%">
+
 ## 🎯 Gestures
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/showcase/02-mouse-style.jpg" alt="Mouse style: tap the left half to left click, the right half to right click"></td>
+<td width="50%"><img src="docs/images/showcase/04-trackpad-style.jpg" alt="Trackpad style: one, two or three-finger taps and three-finger drag"></td>
+</tr>
+</table>
 
 | | 🖱️ Mouse style *(default)* | ⌨️ Trackpad style |
 |---|---|---|
@@ -38,6 +47,8 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 | **Double-click** | 2 quick taps on the left half | 2 quick 1-finger taps |
 | **Drag** | Tap once, touch again and **move the mouse** while holding | 3 fingers down + move the mouse |
 | **Back / Forward** | Flick one finger **left→right** / **right→left** (⌘[ / ⌘]) | Same |
+
+<img src="docs/images/showcase/03-drag-swipe.jpg" alt="Drag without pressing, go back with a flick" width="100%">
 
 > 💡 **Tips**
 > - Tap lightly and lift quickly (under ~0.3 s) without sliding — a sliding finger is a scroll.
@@ -97,6 +108,10 @@ Gestures start automatically once access is granted. Reading touches needs no pe
 ## 🧭 Using it
 
 Click the menu bar icon for **Magic Mouse status + battery**, **Enabled**, the **gesture style**, **Click Sound**, **Check for Updates**, **Send Feedback**, **Support LazyClick**, **Settings** and **Quit**. *Launch at Login* is in Settings → General. Turning *Enabled* off instantly releases any synthetic button and stops all injection. When an update is available the icon turns blue and the menu shows it at the top.
+
+<div align="center">
+<img src="docs/images/showcase/05-details.jpg" alt="Menu bar menu with status and battery, click sound, swap sides, and launch at login" width="480">
+</div>
 
 ## 🔧 Troubleshooting
 
