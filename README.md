@@ -71,12 +71,15 @@ A tiny, native menu bar app that adds touch gestures to Apple's Magic Mouse — 
 No Terminal needed — about a minute:
 
 1. **[Click here to download LazyClick](https://github.com/pisitpong22/LazyClick/releases/latest/download/LazyClick.zip)** (~2 MB).
-2. Open your **Downloads** folder and double-click **LazyClick.zip** — `LazyClick.app` appears next to it.
-3. Drag **LazyClick** into the **Applications** folder (in the Finder sidebar).
-4. Open **Applications** and double-click **LazyClick**. If macOS asks *"Are you sure you want to open it?"*, click **Open**.
-5. A welcome window appears — click **Allow Access** and switch **LazyClick** on in the window that opens ([details below](#grant-accessibility-access)).
+2. Open your **Downloads** folder and double-click **LazyClick.zip**, then double-click the **LazyClick** app that appears. If macOS asks *"Are you sure you want to open it?"*, click **Open**.
+3. Click **Move to Applications**. LazyClick installs itself, moves the download to the Trash and opens again.
+4. A welcome window appears — click **Allow Access** and switch **LazyClick** on in the window that opens ([details below](#grant-accessibility-access)).
 
 That's it — tap your Magic Mouse to click. LazyClick updates itself, so you only do this once.
+
+<div align="center">
+<img src="docs/images/install-window.png" alt="Move to Applications window: LazyClick installs itself and moves the download to the Trash" width="460">
+</div>
 
 <details>
 <summary>Prefer Homebrew?</summary>
